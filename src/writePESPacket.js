@@ -21,6 +21,8 @@ function writeTimeStamp (ts, base, buffer, offset) {
   buffer.writeUInt16BE((ts * 2|0) & 0xfffe) | 0x01, offset + 3);
 }
 
+var efs = (new Buffer(184)).fill(0xff);
+
 function writePESPackets() {
   var continuityCounters = {};
   var pesWriter = function (err, x, push, next) {
@@ -95,6 +97,7 @@ function writePESPackets() {
           dataPos += 184;
           push(null, nextPacket);
         };
+        var adaptationLength = 183 - (data.length - dataPos);
         var finalPacket = {
           type : 'TSPacket',
           packetSync : 0x47,
@@ -107,7 +110,7 @@ function writePESPackets() {
           continuityCounter : counter++,
           adaptationField : {
             type : 'AdaptationField',
-            adaptationFieldLength : 183 - (data.length - dataPos),
+            adaptationFieldLength : adaptationLength,
             discontinuityIndicator : false,
             randomAccessIndicator : false,
             elementaryStreamPriorityIndicator : false,
@@ -117,7 +120,10 @@ function writePESPackets() {
             transportPrivateDataFlag : false,
             adaptationFieldExtensionFlag : false
           },
-          payload : data.slice(dataPos)
+          payload : (adaptationLength === 0) ? data.slice(dataPos) :
+            Buffer.concat([
+              efs.slice(0, adaptLength - 1),
+              data.slice(dataPos)], 182)
         });
         push(null, finalPacket);
         continuityCounters[x.pid] = counter;
