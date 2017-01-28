@@ -1,4 +1,4 @@
-/* Copyright 2016 Streampunk Media Ltd.
+/* Copyright 2017 Streampunk Media Ltd.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -13,21 +13,15 @@
   limitations under the License.
 */
 
-var fs = require('fs');
+var tesladon = require('..');
 var H = require('highland');
-var bufferGroup = require('../src/bufferGroup.js');
-var readTSPacket = require('../src/readTSPackets.js');
-var readPAT = require('../src/readPAT.js');
-var readPMTs = require('../src/readPMTs.js');
-var readPESPackets = require('../src/readPESPackets.js');
+var fs = require('fs');
 
-var ts = H(fs.createReadStream(process.argv[2]));
-
-ts
-  .pipe(bufferGroup(188))
-  .pipe(readTSPacket())
-  .pipe(readPAT(true))
-  .pipe(readPMTs(true))
-  .pipe(readPESPackets(true))
-  .filter(x => x.type === 'PESPacket' && x.pid === 4097)
-  .each(x => H.log(x.payloads))
+H(fs.createReadStream(process.argv[2]))
+  .pipe(tesladon.bufferGroup(188))
+  .pipe(tesladon.readTSPackets())
+  .pipe(tesladon.readPAT(true))
+  .pipe(tesladon.readPMTs(true))
+  .pipe(tesladon.readPESPackets(true))
+  .filter(x => x.type !== 'TSPacket')
+  .each(H.log);

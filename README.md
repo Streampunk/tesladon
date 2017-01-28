@@ -25,6 +25,7 @@ var fs = require('fs');
 
 H(fs.createReadStream(process.argv[2]))
   .pipe(tesladon.bufferGroup(188))
+  .pipe(tesladon.readTSPackets())
   .pipe(tesladon.readPAT(true))
   .pipe(tesladon.readPMTs(true))
   .pipe(tesladon.readPESPackets(true))
@@ -34,7 +35,7 @@ H(fs.createReadStream(process.argv[2]))
 
 The `true` parameter to the read methods requests that the TS packets read to create JSON object are filtered out from the stream.
 
-The `readPMTs()` stage only works after the `readPATs()` stage as it uses the PAT objects to find the _pids_ used for the PMTs.
+The `bufferGroup()` and `readTSPackets()` pipeline stages must come first and be in that order. The `readPMTs()` stage only works after the `readPATs()` stage as it uses the PAT objects to find the _pids_ used for the PMTs.
 
 ### Writing
 
@@ -42,7 +43,7 @@ To follow.
 
 ## Status, support and further development
 
-Currently only reading is supported. 
+Currently only reading is supported.
 
 This is prototype software and not suitable for production use. Contributions can be made via pull requests and will be considered by the author on their merits. Enhancement requests and bug reports should be raised as github issues. For support, please contact [Streampunk Media](http://www.streampunk.media/).
 
