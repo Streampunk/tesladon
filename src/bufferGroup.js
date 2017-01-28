@@ -17,7 +17,7 @@ var H = require('highland');
 
 function bufferGroup (g) {
   var remaining = null;
-  var group = function (err, x, push, next) {
+  var group = (err, x, push, next) => {
     if (err) {
       push(err);
       next();

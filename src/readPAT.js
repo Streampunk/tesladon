@@ -15,8 +15,8 @@
 
 var H = require('highland');
 
-function readPAT() {
-  var makePAT = function (err, x, push, next) {
+function readPAT(filter) {
+  var makePAT = (err, x, push, next) => {
     if (err) {
       push(err);
       next();
@@ -52,6 +52,7 @@ function readPAT() {
           patOffset += 4;
         }
         pat.CRC = x.payload.readUInt32BE(patOffset);
+        if (!filter) push(null, x);
         push(null, pat);
       } else {
         push(null, x);

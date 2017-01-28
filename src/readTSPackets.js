@@ -16,7 +16,7 @@
 var H = require('highland');
 
 function readTSPacket() {
-  var packetMap = function (x) {
+  var packetMap = x => {
     var header = x.readUInt32BE(0);
     var packet = {
       type : 'TSPacket',

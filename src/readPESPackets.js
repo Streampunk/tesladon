@@ -14,16 +14,11 @@
 */
 
 var H = require('highland');
+var readTimeStamp = require('./Util.js').readTimeStamp;
 
-function readTimeStamp (buffer, offset) {
-  return (buffer.readUInt8(offset) & 0x0e) * 536870912 + // << 29
-    (buffer.readUInt16BE(offset + 1) & 0xfffe) * 16384 + // << 14
-    (buffer.readUInt16BE(offset + 4) ) / 2|0; // >> 1
-}
-
-function readPESPackets(programNum) {
+function readPESPackets(filter) {
   var pesBuilder = {};
-  var pesMaker = function (err, x, push, next) {
+  var pesMaker = (err, x, push, next) => {
     if (err) {
       push(err);
       next();
@@ -67,19 +62,20 @@ function readPESPackets(programNum) {
               break;
           }
           pesPacket.payloads = [ x.payload.slice(9 + pesPacket.pesHeaderLength) ];
-          if (pes[x.pid]) {
-            var finishedPacket = pes[x.pid];
-            pes[x.pid] = pesPacket;
+          if (pesBuilder[x.pid]) {
+            var finishedPacket = pesBuilder[x.pid];
+            pesBuilder[x.pid] = pesPacket;
             push(null, finishedPacket);
           } else {
-            pes[x.pid] = pesPacket;
+            pesBuilder[x.pid] = pesPacket;
           }
         } else {
-          if (pes[x.pid]) {
-            pes[s.pid].payloads.push(x.payload);
+          if (pesBuilder[x.pid]) {
+            pesBuilder[x.pid].payloads.push(x.payload);
           };
         }
-      } else { // Not a TS packet
+        if (!filter) push(null, x);
+      } else {
         push(null, x);
       }
       next();

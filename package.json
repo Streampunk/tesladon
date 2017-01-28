@@ -20,6 +20,6 @@
   },
   "homepage": "https://github.com/Streampunk/tesladon#readme",
   "dependencies": {
-    "highland": "^3.0.0-beta.2"
+    "highland": "^2.10.1"
   }
 }

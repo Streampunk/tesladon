@@ -1,2 +1,2 @@
 # tesladon
-MPEG transport stream library for Node.js.
+Streaming MPEG transport stream library for Node.js.

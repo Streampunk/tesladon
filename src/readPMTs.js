@@ -16,9 +16,9 @@
 var H = require('highland');
 var readDescriptors = require('./readDescriptors.js');
 
-function readPMTs() {
+function readPMTs(filter) {
   var patCache = {};
-  var makePMTs = function (err, x, push next) {
+  var makePMTs = (err, x, push, next) => {
     if (err) {
       push(err);
       next();
@@ -26,10 +26,9 @@ function readPMTs() {
       push(null, x);
     } else {
       if (x.type === 'ProgramAssocationTable') {
-        Object.keys(x.table).forEach(function (p) {
+        Object.keys(x.table).forEach((p) => {
           patCache[p] = x.table[p];
         });
-        push(null, x);
       } else if (x.type === 'TSPacket' && patCache[x.pid]) {
         var pmtOffset = 1 + x.payload.readUInt8(0);
         var tableHeader = x.payload.readUInt16BE(pmtOffset + 1);
@@ -58,7 +57,7 @@ function readPMTs() {
           pmt.programInfo.push(nextDescriptor.result);
           remaining = nextDescriptor.remaining;
         };
-        pmtOffst += pmt.programInfoLength;
+        pmtOffset += pmt.programInfoLength;
         while (pmtOffset < pmt.sectionLength - 4) {
           var streamType = x.payload.readUInt8(pmtOffset);
           var elementaryPid = x.payload.readUInt16BE(pmtOffset + 1) & 0x1fff;
@@ -71,20 +70,22 @@ function readPMTs() {
             esInfo : []
           };
           pmtOffset += 5;
-          remaining = x.playload.slice(pmtOffset, pmtOffset + esInfoLength);
+          remaining = x.payload.slice(pmtOffset, pmtOffset + esInfoLength);
           while (remaining.length >= 2) {
             var nextDescriptor = readDescriptors(remaining);
             pmt.esStreamInfo[elementaryPid].esInfo.push(nextDescriptor.result);
             remaining = nextDescriptor.remaining;
           };
           pmtOffset += esInfoLength;
-        }
+        };
         pmt.CRC = x.payload.readUInt32BE(pmtOffset);
+        if (!filter) push(null, x);
         push(null, pmt);
-    } else {
-      push(null, x);
+      } else {
+        push(null, x);
+      }
+      next();
     }
-    next();
   };
   return H.pipeline(H.consume(makePMTs));
 };
