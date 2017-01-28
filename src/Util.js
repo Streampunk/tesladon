@@ -23,9 +23,9 @@ function readTimeStamp (buffer, offset) {
 }
 
 function writeTimeStamp (ts, base, buffer, offset) {
-  buffer.writeUInt8(base | (ts / 536870912|0) | 0x0001, offset);
+  buffer.writeUInt8((base & 0xf0) | ((ts / 536870912|0) & 0x0e) | 0x0001, offset);
   buffer.writeUInt16BE(((ts / 16384|0) & 0xfffe) | 0x01, offset + 1);
-  buffer.writeUInt16BE(((ts * 2|0) & 0xfffe) | 0x01, offset + 3);
+  buffer.writeUInt16BE(((ts * 2 | 0) & 0xfffe) | 0x01, offset + 3);
 }
 
 module.exports = {

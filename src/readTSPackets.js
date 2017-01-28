@@ -14,6 +14,7 @@
 */
 
 var H = require('highland');
+var readTimeStamp = require('./Util.js').readTimeStamp;
 
 function readTSPacket() {
   var packetMap = x => {
@@ -44,7 +45,7 @@ function readTSPacket() {
           discontinuityIndicator : (flags & 0x80) !== 0,
           randomAccessIndicator : (flags & 0x40) !== 0,
           elementaryStreamPriorityIndicator : (flags & 0x20) !== 0,
-          pcrFlag : (flags & 0x01) !== 0,
+          pcrFlag : (flags & 0x10) !== 0,
           opcrFlag : (flags & 0x08) !== 0,
           splicingPointFlag : (flags & 0x04) !== 0,
           transportPrivateDataFlag : (flags & 0x02) !== 0,
@@ -55,7 +56,7 @@ function readTSPacket() {
       if (packet.adaptationField.pcrFlag === true) {
         var pcrBase = x.readUInt32BE(adaptationPosition);
         var pcrExtension = x.readUInt16BE(adaptationPosition + 4);
-        pcrBase = pcrBase * 2 + ((pcrExtension & 0x8000) !== 0) ? 1 : 0;
+        pcrBase = pcrBase * 2 + (((pcrExtension & 0x8000) !== 0) ? 1 : 0);
         pcrExtension = pcrExtension & 0x1ff;
         packet.adaptationField.pcr = pcrBase * 300 + pcrExtension;
         adaptationPosition += 6;
@@ -63,7 +64,7 @@ function readTSPacket() {
       if (packet.adaptationField.opcrFlag === true) {
         var opcrBase = x.readUInt32BE(adaptationPosition);
         var opcrExtension = x.readUInt16BE(adaptationPosition + 4);
-        opcrBase = opcrBase * 2 + ((opcrExtension & 0x8000) !== 0) ? 1 : 0;
+        opcrBase = opcrBase * 2 + (((opcrExtension & 0x8000) !== 0) ? 1 : 0);
         opcrExtension = opcrExtension & 0x1ff;
         packet.adaptationField.opcr = opcrBase * 300 + opcrExtension;
         adaptationPosition += 6;
@@ -80,7 +81,7 @@ function readTSPacket() {
         adaptationPosition += transportPrivateDataLength;
       }
       if (packet.adaptationField.adaptationFieldExtensionFlag === true) {
-        console.log(x, adaptationPosition, packet);
+        // console.log(x, adaptationPosition, packet);
         var adaptExtFlags = x.readUInt8(adaptationPosition + 1);
         packet.adaptationField.adaptationFieldExtension = {
           adaptationExtensionLength : x.readUInt8(adaptationPosition),
@@ -106,11 +107,9 @@ function readTSPacket() {
         if (packet.adaptationField.adaptationFieldExtension.seamlessSpliceFlag === true) {
           packet.adaptationField.adaptationFieldExtension.spliceType =
             x.readUInt8(adaptationPosition) / 16 | 0;
-          var topBits = x.readUInt8(adaptationPosition) & 0x0e * 0x20000000;
-          var midBits = x.readUInt16BE(adaptationPosition + 1) & 0xfffe * 0x4000;
-          var lowBits = x.readUInt16BE(adaptationPosition + 3) / 2 | 0;
           packet.adaptationField.adaptationFieldExtension.dtsNextAccessUnit =
-            topBits + midBits + lowBits;
+            readTimeStamp(x, adaptationPosition);
+          adaptationPosition += 5;
         }
       }
     }
