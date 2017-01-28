@@ -10,7 +10,7 @@ The writing process is effectively the reverse. The user creates a stream of JSO
 
 Tesladon is a library that is designed to be used within other projects. To use the library within your project, in the project's root directory:
 
-    npm install --save netadon
+    npm install --save tesladon
 
 ## Usage
 
