@@ -13,6 +13,9 @@
   limitations under the License.
 */
 
+// TODO Pat tables that extend across more than one packet and have more than
+//      one section.
+
 var H = require('highland');
 
 function readPAT(filter) {
@@ -33,7 +36,7 @@ function readPAT(filter) {
           tableID : x.payload.readUInt8(patOffset),
           sectionSyntaxHeader : (tableHeader & 0X8000) !== 0,
           privateBit : (tableHeader & 0x4000) !== 0,
-          sectionLength : tableHeader & 0x3ff,
+          sectionLength : tableHeader & 0x03ff,
           transportStreamIdentifier : x.payload.readUInt16BE(patOffset + 3),
           versionNumber : x.payload.readUInt8(patOffset + 5) & 0x3c / 2 | 0,
           currentNextIndicator : (x.payload.readUInt8(patOffset + 5) & 0x01) !== 0,
@@ -41,7 +44,8 @@ function readPAT(filter) {
           lastSectionNumber : x.payload.readUInt8(patOffset + 7)
         };
         patOffset += 8;
-        while (patOffset < pat.sectionLength + 4) {
+        var upperTableBound = patOffset + pat.sectionLength - 9;
+        while (patOffset < upperTableBound) {
           var programNum = x.payload.readUInt16BE(patOffset);
           var programMapPID = x.payload.readUInt16BE(patOffset + 2) & 0x1fff;
           if (!pat.table) pat.table = {};
