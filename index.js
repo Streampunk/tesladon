@@ -19,6 +19,6 @@ module.exports = {
   readPAT : require('./src/readPAT.js'),
   readPMTs : require('./src/readPMTs.js'),
   readPESPackets : require('./src/readPESPackets.js'),
-  readTimeStamp : require('./src/Util.js').readTimeStamp,
-  writeTimeStamp : require('./src/Util.js').writeTimeStamp
+  readTimeStamp : require('./src/util.js').readTimeStamp,
+  writeTimeStamp : require('./src/util.js').writeTimeStamp
 };

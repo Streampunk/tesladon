@@ -14,7 +14,7 @@
 */
 
 var H = require('highland');
-var writeTimeStamp = require('./Util.js').writeTimeStamp;
+var writeTimeStamp = require('./util.js').writeTimeStamp;
 
 function writeTSPacket() {
   var makeTSPacket = (err, x, push, next) => {

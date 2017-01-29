@@ -28,6 +28,7 @@ function writeTimeStamp (ts, base, buffer, offset) {
   buffer.writeUInt16BE(((ts * 2 | 0) & 0xfffe) | 0x01, offset + 3);
 }
 
+// CRC-32 code adapted from the output of Thomas Pircher's (MIT licensed) pycrc.
 var crcTable = [
     0x00000000, 0x04c11db7, 0x09823b6e, 0x0d4326d9, 0x130476dc, 0x17c56b6b, 0x1a864db2, 0x1e475005,
     0x2608edb8, 0x22c9f00f, 0x2f8ad6d6, 0x2b4bcb61, 0x350c9b64, 0x31cd86d3, 0x3c8ea00a, 0x384fbdbd,
@@ -65,13 +66,11 @@ var crcTable = [
 
 var crc = (b) => {
   var crc = 0xffffffff;
-  var tableIdx = 0;
-  for ( var x = 0 ; x < b.length ; b++ ) {
-    tableIdx = ((crc >> 24) ^ b.readUInt8(x)) & 0xff;
-    crc = (crcTable[tableIdx] ^ (crc << 8)) & 0xffffffff;
+  for (var i = 0; i < b.length; ++i) {
+      var tableIndex = ((crc >>> 24) ^ b[i]) & 0xff;
+      crc = (crcTable[tableIndex] ^ (crc << 8)) & 0xffffffff;
   }
-  crc = crc & 0xffffffff;
-  return crc ^ 0x00000000;
+  return crc & 0xffffffff;
 }
 
 module.exports = {
@@ -80,6 +79,6 @@ module.exports = {
   crcMpeg : crc
 };
 
-var testB = Buffer.from([0x00, 0xb0, 0x0d, 0xb3, 0xc8, 0xc1,
-  0x00, 0x00, 0x00, 0x01, 0xe1, 0x00]);
-console.log(crc(testB).toString(16));
+// var testB = Buffer.from([0x00, 0xb0, 0x0d, 0xb3, 0xc8, 0xc1,
+//   0x00, 0x00, 0x00, 0x01, 0xe1, 0x00]);
+// console.log((crc(testB) >>> 0).toString(10));

@@ -13,8 +13,8 @@
   limitations under the License.
 */
 
-var readTimeStamp = require('../src/Util.js').readTimeStamp;
-var writeTimeStamp = require('../src/Util.js').writeTimeStamp;
+var readTimeStamp = require('../src/util.js').readTimeStamp;
+var writeTimeStamp = require('../src/util.js').writeTimeStamp;
 var test = require('tape');
 
 function getRandomInt(min, max) {

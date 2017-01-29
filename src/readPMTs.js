@@ -14,7 +14,7 @@
 */
 
 var H = require('highland');
-var readDescriptors = require('./readDescriptors.js');
+var readDescriptor = require('./readDescriptor.js');
 
 function readPMTs(filter) {
   var patCache = {};
@@ -53,7 +53,7 @@ function readPMTs(filter) {
         var remaining =
           x.payload.slice(pmtOffset, pmtOffset + pmt.programInfoLength);
         while (remaining.length >= 2) {
-          var nextDescriptor = readDescriptors(remaining);
+          var nextDescriptor = readDescriptor(remaining);
           pmt.programInfo.push(nextDescriptor.result);
           remaining = nextDescriptor.remaining;
         };
@@ -72,7 +72,7 @@ function readPMTs(filter) {
           pmtOffset += 5;
           remaining = x.payload.slice(pmtOffset, pmtOffset + esInfoLength);
           while (remaining.length >= 2) {
-            var nextDescriptor = readDescriptors(remaining);
+            var nextDescriptor = readDescriptor(remaining);
             pmt.esStreamInfo[elementaryPid].esInfo.push(nextDescriptor.result);
             remaining = nextDescriptor.remaining;
           };

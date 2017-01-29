@@ -14,7 +14,7 @@
 */
 
 var H = require('highland');
-var crc = require('crc');
+var crc = require('./Util.js').crc;
 
 function writePAT() {
   var contCounter = 0;
@@ -62,10 +62,9 @@ function writePAT() {
           tspp.writeUInt16BE(0xe000 | (entry.programMapPID & 0x1fff), patOffset + 2);
           patOffset += 4;
         });
-        var crc32 = crc.crc32(tspp.slice(x.pointerField + 1, patOffset) );
-        console.log(tspp.slice(x.pointerField + 1, patOffset), crc32.toString(16), x.CRC.toString(16));
-        // if (crc32 !== x.CRC)
-        //   console.error("Calculated CRC and existing CRC differ.");
+        var crc32 = crc(tspp.slice(x.pointerField + 1, patOffset));
+        if (crc32 !== x.CRC)
+           console.error("Calculated CRC and existing CRC differ.");
         tspp.writeUInt32BE(crc32, patOffset);
         patOffset += 4;
         for ( var y = patOffset ; y < tspp.length ; y++ ) {

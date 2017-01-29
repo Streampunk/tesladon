@@ -14,7 +14,7 @@
 */
 
 var H = require('highland');
-var readTimeStamp = require('./Util.js').readTimeStamp;
+var readTimeStamp = require('./util.js').readTimeStamp;
 
 function readPESPackets(filter) {
   var pesBuilder = {};

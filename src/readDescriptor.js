@@ -13,14 +13,18 @@
   limitations under the License.
 */
 
-module.exports = function (b) {
-  var length = b.readUInt8(2);
+// TODO Read all descriptor types.
+
+module.exports = b => {
+  var length = b.readUInt8(1);
   var result = null;
   switch (b.readUInt8(0)) {
     case 2: // Video stream descriptor
       var fields = b.readUInt8(2);
       result = {
         type : 'VideoStreamDescritpor',
+        descriptorTag : 2,
+        descriptorLength : length,
         multipleFrameRateFlag : (fields & 0x80) !== 0,
         frameRateCode : (fields & 0x78) >>> 3,
         mpeg1OnlyFlag : (fields & 0x04) !== 0,
@@ -37,6 +41,8 @@ module.exports = function (b) {
       var fields = b.readUInt8(2);
       result = {
         type : 'AudioStreamDescriptor',
+        descriptorTag : 3,
+        descriptorLength : length,
         freeFormatFlag : (fields & 0x80) !== 0,
         ID : (fields & 0x40) !== 0,
         layer : (fields & 0x30) >>> 4,
@@ -60,14 +66,16 @@ module.exports = function (b) {
       break;
     case 10: // ISO_639_langauage descriptor
       result = {
-        type : 'ISO639LanguageDescriptor'
+        type : 'ISO639LanguageDescriptor',
+        descriptorTag : 10,
+        descriptorLength : length,
       };
       var pos = 0;
       result.languages = [];
       while (pos < length) {
         result.languages.push({
           iso639LanguageCode : b.slice(pos + 2, pos + 5).toString('utf8'),
-          audioType
+          audioType : b.readUInt8(pos + 5)
         });
         pos += 4;
       }
@@ -84,6 +92,8 @@ module.exports = function (b) {
     case 14: // maximum Bitrate descriptor
       result = {
         type : 'MaximumBitrateDescriptor',
+        descriptorTag : 14,
+        descriptorLength : length,
         maximumBitrate : (b.readUInt32BE(2) & 0x3fffffff) * 50
       }; // Note: value in descriptor is units of 50bytes/sec
       break;
@@ -100,6 +110,8 @@ module.exports = function (b) {
       var fields = b.readUInt16BE(2);
       result = {
         type : 'IBPDescriptor',
+        descriptorTag : 18,
+        descriptorLength : length,
         closedGopFlag : (fields & 0x8000) !== 0,
         identicalGopFlag : (fields & 0x4000) !== 0,
         maxGopLength : fields & 0x3fff
@@ -108,13 +120,17 @@ module.exports = function (b) {
     case 27: // MPEG-4 video descriptor
       result = {
         type : 'MPEG4VideoDescriptor',
-        MPEG4VideoProfileAndLevel : b.readUInt8(2)
+        descriptorTag : 27,
+        descriptorLength : length,
+        MPEG4VisualProfileAndLevel : b.readUInt8(2)
       };
       break;
     case 28: // MPEG-4 audio descriptor
       result = {
         type : 'MPEG4AudioDescriptor',
-        MPEG4AudioProfileAndLength : b.readUInt8(2)
+        descriptorTag : 28,
+        descriptorLength : length,
+        MPEG4AudioProfileAndLevel : b.readUInt8(2)
       };
       break;
     case 29: // IOD descriptor
@@ -155,6 +171,8 @@ module.exports = function (b) {
       var fields3 = b.readUInt8(5);
       result = {
         type : 'AVCVideoDescriptor',
+        descriptorTag : 40,
+        descriptorLength : length,
         profileIDC : b.readUInt8(2),
         constraintFlag1 : (fields1 & 0x80) !== 0,
         constraintFlag2 : (fields1 & 0x40) !== 0,
@@ -174,9 +192,11 @@ module.exports = function (b) {
     case 43: // MPEG-2 AAC audio descriptor
       result = {
         type : 'MPEG2AACAudioDescriptor',
+        descriptorTag : 43,
+        descriptorLength : length,
         mpeg2AACProfile : b.readUInt8(2),
         mpeg2AACChannelConfiguration : b.readUInt8(3),
-        mpeg2AAVAdditionalInformation : b.readUInt8(4)
+        mpeg2AACAdditionalInformation : b.readUInt8(4)
       };
       break;
     case 44: // FlexMuxTiming descriptor

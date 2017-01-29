@@ -14,6 +14,8 @@
 */
 
 var H = require('highland');
+var crc = require('./util.js').crc;
+var writeDescriptor = require('./writeDescriptor.js');
 
 function writePMTs() {
   var contCounter = 0;
@@ -60,6 +62,32 @@ function writePMTs() {
         tspp.writeUInt16BE(0xf0 | (x.programInfoLength & 0x3ff), pmtOffset);
         pmtOffset += 2;
 
+        x.programInfo.forEach(p => {
+          var written = writeDescriptor(p, tspp, pmtOffset);
+          pmtOffset += written;
+        });
+        if (x.esStreamInfo) {
+          Object.keys(x.esStreamInfo).forEach(k => {
+            var e = x.esStreamInfo[k];
+            tspp.writeUInt8(e.streamType, pmtOffset++);
+            tspp.writeUInt16BE(0xe000 | (e.elementaryPid & 0x1ff), pmtOffset);
+            pmtOffset += 2;
+            tspp.writeUInt16BE(0xf000 | (e.esInfoLength & 0x3ff), pmtOffset);
+            pmtOffset += 2;
+            e.esInfo.forEach(i => {
+              var written = writeDescriptor(i, tspp, pmtOffset);
+              pmtOffset += written;
+            });
+          });;
+        }
+        var crc32 = crc(tspp.slice(x.pointerField + 1, patOffset));
+        if (crc32 !== x.CRC)
+           console.error("Calculated CRC and existing CRC differ.");
+        tspp.writeUInt32BE(crc32, patOffset);
+        patOffset += 4;
+        for ( var y = patOffset ; y < tspp.length ; y++ ) {
+          tspp.writeUInt8(0xff, y);
+        }
         contCounter = (contCounter + 1) % 16;
         push(null, tsp);
       } else {
@@ -71,4 +99,4 @@ function writePMTs() {
   return H.pipeline(H.consume(pmtToPacket));
 }
 
-export.modules = writePMTs;
+module.exports = writePMTs;
