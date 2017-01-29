@@ -18,7 +18,7 @@ var crc = require('./util.js').crc;
 var writeDescriptor = require('./writeDescriptor.js');
 
 function writePMTs() {
-  var contCounter = 0;
+  var continuityCounters = {};
   var pmtToPacket = (err, x, push, next) => {
     if (err) {
       push(err);
@@ -27,6 +27,8 @@ function writePMTs() {
       push(null, x);
     } else {
       if (x.type && x.type === 'ProgramMapTable') {
+        var counter = continuityCounters[x.pid];
+        if (typeof counter === 'undefined') counter = 0;
         var tsp = {
           type : 'TSPacket',
           packetSync : 0x47,
@@ -36,7 +38,7 @@ function writePMTs() {
           pid : x.pid,
           scramblingControl : 0,
           adaptationFieldControl : 1,
-          continuityCounter : contCounter,
+          continuityCounter : counter++,
           payload : Buffer.allocUnsafe(184)
         };
         var tspp = tsp.payload;
@@ -88,7 +90,7 @@ function writePMTs() {
         for ( var y = patOffset ; y < tspp.length ; y++ ) {
           tspp.writeUInt8(0xff, y);
         }
-        contCounter = (contCounter + 1) % 16;
+        continuityCounters[x.pid] = counter % 16;
         push(null, tsp);
       } else {
         push(null, x);

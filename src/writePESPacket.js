@@ -14,18 +14,13 @@
 */
 
 var H = require('highland');
+var writeTimeStamp = require('./util.js').writeTimeStamp;
 
-function writeTimeStamp (ts, base, buffer, offset) {
-  buffer.writeUInt8(base | (ts / 536870912|0) | 0x0001, offset);
-  buffer.writeUInt16BE(((ts / 16384|0) & 0xfffe) | 0x01, offset + 1);
-  buffer.writeUInt16BE((ts * 2|0) & 0xfffe) | 0x01, offset + 3);
-}
-
-var efs = (new Buffer(184)).fill(0xff);
+var efs = Buffer.alloc(184, 0xff);
 
 function writePESPackets() {
   var continuityCounters = {};
-  var pesWriter = function (err, x, push, next) {
+  var pesWriter = (err, x, push, next) => {
     if (err) {
       push(err);
       next();
@@ -46,32 +41,35 @@ function writePESPackets() {
           scramblingControl : 0,
           adaptationFieldControl : 1,
           continuityCounter : counter++,
-          payload : new Buffer(184)
+          payload : Buffer.allocUnsafe(184)
         };
-        headerPacket.payload.writeUIntBE(1, 0, 3);
-        headerPacket.payload.writeUInt8(x.streamID, 3);
-        headerPacket.payload.writeUInt16BE(x.pesPacketLength, 4);
-        headerPacket.payload.writeUInt16BE(
+        counter = counter % 16;
+        var hpp = headerPacket.payload;
+        hpp.writeUIntBE(1, 0, 3);
+        hpp.writeUInt8(x.streamID, 3);
+        hpp.writeUInt16BE(x.pesPacketLength, 4);
+        hpp.writeUInt16BE(
+          0x8000 |
           (x.scramblingControl & 0x03) << 12 |
-          ((x.priority === true) ? 0x0800 : 0) |
-          ((x.dataAlignmentIndicator === true) ? 0x0400 : 0) |
-          ((x.copyright === true) ? 0x0200 : 0) |
-          ((x.originalOrCopy === true) ? 0x0100 : 0) |
+          ((x.priority === true) ? 0x0800 : 0x0000) |
+          ((x.dataAlignmentIndicator === true) ? 0x0400 : 0x0000) |
+          ((x.copyright === true) ? 0x0200 : 0x0000) |
+          ((x.originalOrCopy === true) ? 0x0100 : 0x0000) |
           (x.ptsDtsIndicator & 0x03) << 6 |
-          ((x.escrFlag === true) ? 0x0020 : 0) |
-          ((x.esRateFlag === true) ? 0x0010 : 0) |
-          ((x.dsmTrickModeFlag === true) ? 0x0008 : 0) |
-          ((x.additionalCopyInfoFlag === true) ? 0x0004 : 0) |
-          ((x.crcFlag === true) ? 0x0002 : 0) |
-          ((x.extensionFlag === true) ? 0x0001 : 0), 6);
-        headerPacket.payload.writeUInt8(x.headerDataLength, 8);
+          ((x.escrFlag === true) ? 0x0020 : 0x0000) |
+          ((x.esRateFlag === true) ? 0x0010 : 0x0000) |
+          ((x.dsmTrickModeFlag === true) ? 0x0008 : 0x0000) |
+          ((x.additionalCopyInfoFlag === true) ? 0x0004 : 0x0000) |
+          ((x.crcFlag === true) ? 0x0002 : 0x0000) |
+          ((x.extensionFlag === true) ? 0x0001 : 0x0000), 6);
+        hpp.writeUInt8(x.headerDataLength, 8);
         switch (x.ptsDtsIndicator) {
           case 2:
-            writeTimeStamp(0x20, x.pts, headerPacket.payload, 9);
+            writeTimeStamp(x.pts, 0x20, hpp, 9);
             break;
           case 3:
-            writeTimeStamp(0x30, x.pts, headerPacket.payload, 9);
-            writeTimeStamp(0x10, x.dts, headerPacket.payload, 14);
+            writeTimeStamp(x.pts, 0x30, hpp, 9);
+            writeTimeStamp(x.dts, 0x10, hpp, 14);
             break;
           default:
             break;
@@ -79,7 +77,8 @@ function writePESPackets() {
         var data = (x.payloads.length === 1) ? x.payloads[0] :
           Buffer.concat(x.payloads);
         // TODO if PES size < single TS packet with header, this is wrong?
-        var dataPos = data.slice(0, 184 - 9 - x.headerDataLength);
+        var dataPos = data.copy(hpp, 9 + x.headerDataLength);
+        while (dataPos < 184) hpp.writeUInt8(0xff, dataPos++);
         push(null, headerPacket);
         while (dataPos < data.length - 184) {
           var nextPacket = {
@@ -93,7 +92,8 @@ function writePESPackets() {
             adaptationFieldControl : 1,
             continuityCounter : counter++,
             payload : data.slice(dataPos, dataPos + 184)
-          });
+          };
+          counter = counter % 16;
           dataPos += 184;
           push(null, nextPacket);
         };
@@ -120,13 +120,10 @@ function writePESPackets() {
             transportPrivateDataFlag : false,
             adaptationFieldExtensionFlag : false
           },
-          payload : (adaptationLength === 0) ? data.slice(dataPos) :
-            Buffer.concat([
-              efs.slice(0, adaptLength - 1),
-              data.slice(dataPos)], 182)
-        });
+          payload : data.slice(dataPos) // Adaptation filled in TS Packet.
+        };
         push(null, finalPacket);
-        continuityCounters[x.pid] = counter;
+        continuityCounters[x.pid] = counter % 16;
       } else {
         push(null, x);
       }
