@@ -39,7 +39,7 @@ The `bufferGroup()` and `readTSPackets()` pipeline stages must come first and be
 
 ### Writing
 
-To follow.
+To follow. The code is basically done but will not be released to the world until it is roundtrip tested and a basic muxer has been created.
 
 ## Status, support and further development
 
