@@ -28,5 +28,8 @@ test('Check the roundtrip of TS packets', t => {
     .pipe(tesladon.readTSPackets())
     .pipe(tesladon.writeTSPackets())
     .doto(x => { t.ok(x.equals(packetBytes), `packet ${count++} is equal.`); })
-    .done(t.end);
+    .done(x => {
+      t.equal(count, 5577, 'correct number of packets processed.'); 
+      t.end()
+    });
 });
