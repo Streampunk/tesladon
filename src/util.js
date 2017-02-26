@@ -28,6 +28,29 @@ function writeTimeStamp (ts, base, buffer, offset) {
   buffer.writeUInt16BE(((ts * 2 | 0) & 0xfffe) | 0x01, offset + 3);
 }
 
+const tsDay = Math.pow(2, 33)
+const tsDaysMS = Math.pow(2, 33) / 90;
+
+function tsTimeToPTPTime (t) {
+  var epochTSDays = (Date.now() / tsDaysMS) | 0;
+  var ticksSinceEpoch = tsDay * epochTSDays + t;
+  var secondsSinceEpoch = ticksSinceEpoch / 90000;
+  var roundedSeconds = secondsSinceEpoch | 0;
+  return [ roundedSeconds, (secondsSinceEpoch - roundedSeconds) * 1000000000|0 ];
+}
+
+function ptpTimeToTsTime (p) {
+  var baseTicksSinceEpoch = p[0] * 90000;
+  var ticksInSecond = ((p[1] / 1000000000) * 90000 + 0.5 ) |0;
+  var totalTicks = baseTicksSinceEpoch + ticksInSecond;
+  var epochTSDaysTicks = totalTicks / tsDay |0;
+  return totalTicks - epochTSDaysTicks * tsDay;
+}
+
+function tsDaysSinceEpoch() {
+  return (Date.now() / tsDaysMS) | 0;
+}
+
 // CRC-32 code adapted from the output of Thomas Pircher's (MIT licensed) pycrc.
 var crcTable = [
     0x00000000, 0x04c11db7, 0x09823b6e, 0x0d4326d9, 0x130476dc, 0x17c56b6b, 0x1a864db2, 0x1e475005,
@@ -76,7 +99,10 @@ var crc = (b) => {
 module.exports = {
   readTimeStamp : readTimeStamp,
   writeTimeStamp : writeTimeStamp,
-  crcMpeg : crc
+  crcMpeg : crc,
+  tsTimeToPTPTime : tsTimeToPTPTime,
+  ptpTimeToTsTime : ptpTimeToTsTime,
+  tsDaysSinceEpoch : tsDaysSinceEpoch
 };
 
 // var testB = Buffer.from([0x00, 0xb0, 0x0d, 0xb3, 0xc8, 0xc1,

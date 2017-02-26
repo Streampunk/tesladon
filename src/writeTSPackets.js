@@ -16,7 +16,7 @@
 var H = require('highland');
 var writeTimeStamp = require('./util.js').writeTimeStamp;
 
-function writeTSPacket() {
+function writeTSPackets() {
   var makeTSPacket = (err, x, push, next) => {
     if (err) {
       push(err);
@@ -132,4 +132,4 @@ function writeTSPacket() {
   return H.pipeline(H.consume(makeTSPacket));
 }
 
-module.exports = writeTSPacket;
+module.exports = writeTSPackets;

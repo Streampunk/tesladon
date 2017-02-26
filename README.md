@@ -41,6 +41,31 @@ The `bufferGroup()` and `readTSPackets()` pipeline stages must come first and be
 
 To follow. The code is basically done but will not be released to the world until it is roundtrip tested and a basic muxer has been created.
 
+### TS time mapped to PTP time
+
+A mapping is defined between MPEG-TS timestamps (PTS and DTS in PES packets) and PTP time for _relative_ time mapping purposes only. The aim is that given any TS timestamp, it is possible to create a PTP timestamp and take this PTP timestamp and get back exactly the same TS timestamp. It is also possible to take a PTP timestamp from co-timed PTP sources and make consistent relative TS timestamp. Care needs to be taken near to the day boundary (Unix epoch, no leap seconds, 2**33 90Hz units per day) as the timestamp will wrap back to zero.
+
+```javascript
+var tesladon = require('tesladon');
+var pts = 2964452213;
+
+// Convert to PTP timestamp
+var ptp = tesladon.tsTimeToPTPTime(pts);
+// ptp is [ 1488095940, 845388889 ]
+
+// Convert from PTP timestamp to TS timestamp
+var tsts = tesladon.ptpTimeToTsTime(ptp);
+// tsts is 2964452213 == pts
+
+// Find out today's TS day ... the number of elapsed TS days since the Unix epoch
+tesladon.tsDaysSinceEpoch()
+// As of today, that is 15591
+```
+
+Note that one of the side effects of this approach is that PTP timestamps generated from arbitrary transport streams will sometimes appear to be slightly in the future.
+
+Transport stream timing references are not intended for use as relative time references within the MPEG reference decoder (see ISO/IEC 13818-1). It is not recommended to use MPEG-TS timing references as time-of-day time references for metadata purposes.
+
 ## Status, support and further development
 
 Currently only reading is supported.

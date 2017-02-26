@@ -132,3 +132,5 @@ function writePESPackets() {
   };
   return H.pipeline(H.consume(pesWriter));
 }
+
+module.exports = writePESPackets;

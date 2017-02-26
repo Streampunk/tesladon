@@ -20,5 +20,12 @@ module.exports = {
   readPMTs : require('./src/readPMTs.js'),
   readPESPackets : require('./src/readPESPackets.js'),
   readTimeStamp : require('./src/util.js').readTimeStamp,
-  writeTimeStamp : require('./src/util.js').writeTimeStamp
+  writeTimeStamp : require('./src/util.js').writeTimeStamp,
+  writeTSPackets : require('./src/writeTSPackets.js'),
+  writePAT : require('./src/writePAT.js'),
+  writePMTs : require('./src/writePMTs.js'),
+  writePESPackets : require('./src/writePESPackets.js'),
+  tsTimeToPTPTime : require('./src/util.js').tsTimeToPTPTime,
+  ptpTimeToTsTime : require('./src/util.js').ptpTimeToTsTime,
+  tsDaysSinceEpoch : require('./src/util.js').tsDaysSinceEpoch
 };

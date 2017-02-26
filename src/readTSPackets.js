@@ -16,7 +16,7 @@
 var H = require('highland');
 var readTimeStamp = require('./util.js').readTimeStamp;
 
-function readTSPacket() {
+function readTSPackets() {
   var packetMap = x => {
     var header = x.readUInt32BE(0);
     var packet = {
@@ -123,4 +123,4 @@ function readTSPacket() {
   return H.pipeline(H.map(packetMap));
 }
 
-module.exports = readTSPacket;
+module.exports = readTSPackets;
