@@ -71,7 +71,8 @@ function readPESPackets(filter) {
           }
         } else {
           if (pesBuilder[x.pid]) {
-            pesBuilder[x.pid].payloads.push(x.payload);
+            if (x.payload) // Might be a adaptation field only - no payload
+              pesBuilder[x.pid].payloads.push(x.payload);
           };
         }
         if (!filter) push(null, x);

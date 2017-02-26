@@ -13,23 +13,30 @@
   limitations under the License.
 */
 
-var test = require('tape');
-var tesladon = require('../index.js');
+var tesladon = require('..');
 var H = require('highland');
-
 var fs = require('fs');
 
-test('Check the roundtrip of TS packets', t => {
-  var packetBytes = null;
-  var count = 0;
-  H(fs.createReadStream(__dirname + '/sd.ts'))
-    .pipe(tesladon.bufferGroup(188))
-    .doto(x => { packetBytes = x; })
-    .pipe(tesladon.readTSPackets())
-    .pipe(tesladon.writeTSPackets())
-    .doto(x => { t.ok(x.equals(packetBytes), `packet ${count++} is equal.`); })
-    .done(x => {
-      t.equal(count, 5577, 'correct number of packets processed.');
-      t.end();
-    });
-});
+var latestPes = null;
+var inCount = 0;
+var outCount = 0;
+
+H(fs.createReadStream(process.argv[2]))
+  .pipe(tesladon.bufferGroup(188))
+  .pipe(tesladon.readTSPackets())
+  .pipe(tesladon.readPAT(true))
+  .pipe(tesladon.readPMTs(true))
+  .pipe(tesladon.readPESPackets(true))
+  .doto(x => {
+    if (x.type === 'PESPacket') {
+      console.log('>>>IN>>>', inCount++, x);
+      console.log();
+    };
+  })
+  .pipe(tesladon.writePESPackets())
+  .pipe(tesladon.readPESPackets(true))
+  .filter(x => x.type === 'PESPacket')
+  .each(x => {
+    console.log('<<<OUT<<<', outCount++, x);
+    console.log();
+  })
