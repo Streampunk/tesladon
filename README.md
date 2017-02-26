@@ -1,10 +1,10 @@
 # tesladon
 
-Reactive streams [MPEG transport stream](https://en.wikipedia.org/wiki/MPEG_transport_stream) library for [Node.js](http://nodejs.org/). Uses [Highland](http://highlandjs.org/) to provide a set of mappings from binary transport stream packets to and from JSON objects with Buffer payloads.
+Reactive streams [MPEG transport stream](https://en.wikipedia.org/wiki/MPEG_transport_stream) library for [Node.js](http://nodejs.org/). Uses [Highland](http://highlandjs.org/) to provide a set of mappings from binary transport stream packets to and from Javascript objects with Buffer payloads.
 
-The philosophy is to read/consume any stream (file, network, ASI), turn it into JSON objects that represent transport stream packets and then add to the stream additional JSON objects for Program Association Tables, Program Map Tables and PES packets. The user of the stream can then filter out the information that is of interest to them. Each stage can either pass on the packets it has process or filter them out.
+The philosophy is to read/consume any stream (file, network, ASI), turn it into Javascript objects that represent transport stream packets and then add to the stream additional JSON objects for Program Association Tables, Program Map Tables and PES packets. The user of the stream can then filter out the information that is of interest to them. Each stage can either pass on the packets it has processed, or filter them out.
 
-The writing process is effectively the reverse. The user creates a stream of JSON objects representing the transport stream and tesladon turns these back into transport stream packets. Utility functions will be added over time to help with multiplexing and inserting a sufficient number of PATs and PMTs at a reasonable frequency.
+The writing process is effectively the reverse. The user creates a stream of Javascript objects representing the transport stream and tesladon turns these back into transport stream packets. Utility functions will be added over time to help with multiplexing and inserting a sufficient number of PATs and PMTs at a reasonable frequency.
 
 ## Installation
 
