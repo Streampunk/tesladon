@@ -22,6 +22,6 @@ var outs = fs.createWriteStream(process.argv[3]);
 H(fs.createReadStream(process.argv[2]))
   .pipe(tesladon.bufferGroup(188))
   .pipe(tesladon.readTSPackets())
-  .pipe(require('../src/writeTSPackets.js')())
-  .filter(x => Buffer.isBuffer(x))
+  .pipe(tesladon.writeTSPackets())
+  .filter(Buffer.isBuffer)
   .pipe(outs)

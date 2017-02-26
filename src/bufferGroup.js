@@ -26,11 +26,12 @@ function bufferGroup (g) {
     } else {
       var bufs = [];
       var pointer = 0;
+      console.log(x.length);
       if (remaining) {
         push(null, Buffer.concat([remaining, x.slice(0, g - remaining.length)], 188));
         pointer = g - remaining.length;
       }
-      while (pointer < x.length - g) {
+      while (pointer <= x.length - g) {
         push(null, x.slice(pointer, pointer + g));
         pointer += g;
       }
