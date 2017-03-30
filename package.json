@@ -1,6 +1,6 @@
 {
   "name": "tesladon",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "MPEG transport stream library for Node.js.",
   "main": "index.js",
   "scripts": {

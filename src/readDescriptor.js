@@ -206,7 +206,7 @@ module.exports = b => {
       result = backstop(b, 'UnknownDescriptor');
       break;
   }
-  return { descriptor : result, remaining : buffer.slice(length + 2) };
+  return { descriptor : result, remaining : b.slice(length + 2) };
 }
 
 function backstop(b, type) {
