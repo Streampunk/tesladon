@@ -14,7 +14,7 @@
 */
 
 var H = require('highland');
-var crc = require('./Util.js').crc;
+var crc = require('./util.js').crc;
 
 function writePAT() {
   var contCounter = 0;
