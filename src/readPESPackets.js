@@ -29,7 +29,9 @@ function readPESPackets(filter) {
         if (x.payloadUnitStartIndicator === true) {
           if (x.payload.readUIntBE(0, 3) !== 1) {
             console.error('Expected PES packet at payload start indicator.');
-            return push(null, x);
+            push(null, x);
+            next();
+            return;
           }
           var pesOptional = x.payload.readUInt16BE(6);
           var pesPacket = {
