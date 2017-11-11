@@ -1,6 +1,7 @@
+[![CircleCI](https://circleci.com/gh/Streampunk/tesladon.svg?style=shield&circle-token=:circle-token)](https://circleci.com/gh/Streampunk/tesladon)
 # tesladon
 
-Reactive streams [MPEG transport stream](https://en.wikipedia.org/wiki/MPEG_transport_stream) library for [Node.js](http://nodejs.org/). Uses [Highland](http://highlandjs.org/) to provide a set of mappings from binary transport stream packets to and from Javascript objects with Buffer payloads.
+[MPEG transport stream](https://en.wikipedia.org/wiki/MPEG_transport_stream) library for [Node.js](http://nodejs.org/). Uses [Highland](http://highlandjs.org/) reactive streams library to provide a set of mappings from binary transport stream packets to and from Javascript objects with embedded Buffer payloads.
 
 The philosophy is to read/consume any stream (file, network, ASI), turn it into Javascript objects that represent transport stream packets and then add to the stream additional JSON objects for Program Association Tables, Program Map Tables and PES packets. The user of the stream can then filter out the information that is of interest to them. Each stage can either pass on the packets it has processed, or filter them out.
 
@@ -11,6 +12,12 @@ The writing process is effectively the reverse. The user creates a stream of Jav
 Tesladon is a library that is designed to be used within other projects. To use the library within your project, in the project's root directory:
 
     npm install --save tesladon
+
+Alternatively, you can use tesladon as a transport stream dumper via a global install and the `tesladump` application.
+
+    npm install -g tesladon
+
+Users or Mac or Linux platforms may need to prepend `sudo` to the above.
 
 ## Usage
 
@@ -40,6 +47,66 @@ The `bufferGroup()` and `readTSPackets()` pipeline stages must come first and be
 ### Writing
 
 To follow. The code is basically done but will not be released to the world until it is roundtrip tested and a basic muxer has been created.
+
+### Dumping a file
+
+Run:
+
+    tesladump <myfile.ts>
+
+Here is an example output:
+
+```Javascript
+{ type: 'ProgramMapTable',
+  pid: 256,
+  pointerField: 0,
+  tableID: 2,
+  sectionSyntaxHeader: true,
+  privateBit: false,
+  sectionLength: 23,
+  programNum: 1,
+  versionNumber: 0,
+  currentNextIndicator: true,
+  sectionNumber: 0,
+  lastSectionNumber: 0,
+  pcrPid: 4096,
+  programInfoLength: 0,
+  payload: <Buffer 00 02 b0 17 00 01 c1 00 00 f0 00 f0 00 1b f0 00 f0 00 0f f0 01 f0 00 c5 f7 eb 39>,
+  programInfo: [],
+  esStreamInfo:
+   { '4096':
+     { streamType: 27,
+       elementaryPid: 4096,
+       esInfoLength: 0,
+       esInfo: [] },
+     '4097':
+     { streamType: 15,
+       elementaryPid: 4097,
+       esInfoLength: 0,
+       esInfo: [] } },
+  CRC: 3321359161 }
+{ type: 'PESPacket',
+  pid: 4096,
+  streamID: 224,
+  pesPacketLength: 0,
+  scramblingControl: 0,
+  priority: false,
+  dataAlignmentIndicator: true,
+  copyright: false,
+  originalOrCopy: false,
+  ptsDtsIndicator: 3,
+  escrFlag: false,
+  esRateFlag: false,
+  dsmTrickModeFlag: false,
+  additionalCopyInfoFlag: false,
+  crcFlag: false,
+  extensionFlag: false,
+  pesHeaderLength: 10,
+  pts: 3802644416,
+  dts: 3802626416,
+  payloads: { number: 67, size: 12201 } }
+Finished dumping MPEG transport stream data.
+```
 
 ### TS time mapped to PTP time
 
