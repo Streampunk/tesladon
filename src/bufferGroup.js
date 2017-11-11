@@ -17,30 +17,23 @@ var H = require('highland');
 
 function bufferGroup (g) {
   var remaining = null;
-  var group = (err, x, push, next) => {
-    if (err) {
-      push(err);
-      next();
-    } else if (x === H.nil) {
-      push(null, x);
-    } else {
-      var bufs = [];
-      var pointer = 0;
-      if (remaining) {
-        push(null, Buffer.concat([remaining, x.slice(0, g - remaining.length)], 188));
-        pointer = g - remaining.length;
-      }
-      while (pointer <= x.length - g) {
-        push(null, x.slice(pointer, pointer + g));
-        pointer += g;
-      }
-      if (pointer < x.length)
-        remaining = x.slice(pointer);
-      else remaining = null;
-      next();
+  var group = x => {
+    var bufs = [];
+    var pointer = 0;
+    if (remaining) {
+      bufs.push(Buffer.concat([remaining, x.slice(0, g - remaining.length)], 188));
+      pointer = g - remaining.length;
     }
+    while (pointer <= x.length - g) {
+      bufs.push(x.slice(pointer, pointer + g));
+      pointer += g;
+    }
+    if (pointer < x.length)
+      remaining = x.slice(pointer);
+    else remaining = null;
+    return H(bufs);
   };
-  return H.pipeline(H.consume(group));
+  return H.pipeline(H.flatMap(group));
 }
 
 module.exports = bufferGroup;

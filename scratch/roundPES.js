@@ -17,7 +17,6 @@ var tesladon = require('..');
 var H = require('highland');
 var fs = require('fs');
 
-var latestPes = null;
 var inCount = 0;
 var outCount = 0;
 

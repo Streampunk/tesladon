@@ -60,6 +60,7 @@ function readPESPackets(filter) {
           case 3:
             pesPacket.pts = readTimeStamp(x.payload, 9);
             pesPacket.dts = readTimeStamp(x.payload, 14);
+            break;
           default:
             break;
           }

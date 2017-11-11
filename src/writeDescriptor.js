@@ -17,6 +17,7 @@
 
 module.exports = (d, b, o) => {
   var s = o;
+  var fields = [];
   if (d.type.endsWith('Raw')) { // For descriptors not yet parsed - backstop
     b.writeUInt8(d.descriptorTag, o++);
     b.writeUInt8(d.descriptorLength, o++);
@@ -27,12 +28,12 @@ module.exports = (d, b, o) => {
   case 'VideoStreamDescritpor':
     b.writeUInt8(2, o++);
     b.writeUInt8(d.mpeg1OnlyFlag ? 3 : 1, o++);
-    var fields = (d.multipleFrameRateFlag ? 0x80 : 0x00) |
+    fields.push((d.multipleFrameRateFlag ? 0x80 : 0x00) |
         ((d.frameRateCode & 0x0f) << 3) |
         (d.frameRateCode ? 0x04 : 0x00) |
         (d.constraintParameterFlag ? 0x02 : 0x00) |
-        (d.stillPictureFlag ? 0x01 : 0x00);
-    b.writeUInt8(fields, o++);
+        (d.stillPictureFlag ? 0x01 : 0x00));
+    b.writeUInt8(fields[0], o++);
     if (d.mpeg1OnlyFlag === true) {
       b.writeUInt8(d.profileAndLevelIndication, o++);
       b.writeUInt8(((d.chromaFormat & 0x03) << 6) |
@@ -42,10 +43,10 @@ module.exports = (d, b, o) => {
   case 'AudioStreamDescriptor':
     b.writeUInt8(3, o++);
     b.writeUInt8(1, o++);
-    var fields = (d.freeFormatFlag ? 0x08 : 0x00) |
+    fields.push((d.freeFormatFlag ? 0x08 : 0x00) |
         (d.ID ? 0x40 : 0x00) |
         ((d.layer & 0x03) << 4) |
-        (d.variableRateAudioIndicator ? 0x08 : 0x00) | 0x07;
+        (d.variableRateAudioIndicator ? 0x08 : 0x00) | 0x07);
     b.writeUInt8(fields, o++);
     break;
   case 'ISO639LanguageDescriptor':
@@ -84,15 +85,15 @@ module.exports = (d, b, o) => {
     b.writeUInt8(40, o++);
     b.writeUInt8(4, o++);
     b.writeUInt8(d.profileIDC. o++);
-    var fields1 = (d.constraintFlag1 ? 0x80 : 0x00) |
-        (d.constraintFlag2 ? 0x40 : 0x00) |
-        (d.constraintFlag3 ? 0x20 : 0x00) |
-        (d.avcCompatibleFlag & 0x1f);
-    b.writeUInt8(fields1, o++);
+    fields.push((d.constraintFlag0 ? 0x80 : 0x00) |
+        (d.constraintFlag1 ? 0x40 : 0x00) |
+        (d.constraintFlag2 ? 0x20 : 0x00) |
+        (d.avcCompatibleFlag & 0x1f));
+    b.writeUInt8(fields[0], o++);
     b.writeUInt8(d.levelIDC, o++);
-    var fields3 = (d.avcStillPresent ? 0x80 : 0x00) |
-        (d.avc24HourPictureFlag ? 0x40 : 0x00) | 0x3f;
-    b.writeUInt8(fields3, o++);
+    fields.push((d.avcStillPresent ? 0x80 : 0x00) |
+        (d.avc24HourPictureFlag ? 0x40 : 0x00) | 0x3f);
+    b.writeUInt8(fields[1], o++);
     break;
   case 'MPEG2AACAudioDescriptor':
     b.writeUInt8(43, o++);

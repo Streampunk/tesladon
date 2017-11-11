@@ -76,7 +76,7 @@ function writeTSPackets() {
             adaptationPosition++;
             af.transportPrivateData.copy(b, adaptationPosition,
               0, af.transportPrivateDataLength);
-            adaptationPosition += ad.transportPrivateDataLength;
+            adaptationPosition += af.transportPrivateDataLength;
           }
           if (af.adaptationFieldExtensionFlag === true) {
             var afx = af.adaptationFieldExtension;

@@ -33,9 +33,9 @@ function readPMTs(filter) {
       } else if (x.type === 'TSPacket' && patCache[x.pid]) {
         var pmt = null;
         if (x.payloadUnitStartIndicator === true) {
-          var pmtOffset = 1 + x.payload.readUInt8(0);
+          let pmtOffset = 1 + x.payload.readUInt8(0);
           var tableHeader = x.payload.readUInt16BE(pmtOffset + 1);
-          var pmt = {
+          pmt = {
             type : 'ProgramMapTable',
             pid : x.pid,
             pointerField : pmtOffset - 1,
@@ -59,13 +59,13 @@ function readPMTs(filter) {
         }
         if (pmt.payload.length >= (pmt.sectionLength + pmt.pointerField + 4)) {
           pmt.payload = pmt.payload.slice(0, pmt.sectionLength + pmt.pointerField + 4);
-          var pmtOffset = pmt.pointerField + 13;
+          let pmtOffset = pmt.pointerField + 13;
           pmt.programInfo = [];
           var remaining =
             x.payload.slice(pmtOffset, pmtOffset + pmt.programInfoLength);
           console.log('>>>', remaining.length, pmtOffset, pmt.programInfoLength);
           while (remaining.length >= 2) {
-            var nextDescriptor = readDescriptor(remaining);
+            let nextDescriptor = readDescriptor(remaining);
             console.log(nextDescriptor);
             pmt.programInfo.push(nextDescriptor.result);
             remaining = nextDescriptor.remaining;
@@ -85,7 +85,7 @@ function readPMTs(filter) {
             pmtOffset += 5;
             remaining = x.payload.slice(pmtOffset, pmtOffset + esInfoLength);
             while (remaining.length >= 2) {
-              var nextDescriptor = readDescriptor(remaining);
+              let nextDescriptor = readDescriptor(remaining);
               pmt.esStreamInfo[elementaryPid].esInfo.push(nextDescriptor.result);
               remaining = nextDescriptor.remaining;
             }

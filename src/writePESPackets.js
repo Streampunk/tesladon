@@ -16,7 +16,7 @@
 var H = require('highland');
 var writeTimeStamp = require('./util.js').writeTimeStamp;
 
-var efs = Buffer.alloc(184, 0xff);
+// var efs = Buffer.alloc(184, 0xff);
 
 function writePESPackets() {
   var continuityCounters = {};
@@ -28,7 +28,7 @@ function writePESPackets() {
       push(null, x);
     } else {
       if (x.type === 'PESPacket') {
-        var bytePos = 0;
+        // var bytePos = 0;
         var counter = continuityCounters[x.pid];
         if (typeof counter === 'undefined') counter = 0;
 

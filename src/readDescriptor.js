@@ -18,18 +18,19 @@
 module.exports = b => {
   var length = b.readUInt8(1);
   var result = null;
+  var fields = [];
   switch (b.readUInt8(0)) {
   case 2: // Video stream descriptor
-    var fields = b.readUInt8(2);
+    fields.push(b.readUInt8(2));
     result = {
       type : 'VideoStreamDescritpor',
       descriptorTag : 2,
       descriptorLength : length,
-      multipleFrameRateFlag : (fields & 0x80) !== 0,
-      frameRateCode : (fields & 0x78) >>> 3,
-      mpeg1OnlyFlag : (fields & 0x04) !== 0,
-      constraintParameterFlag : (fields & 0x02) !== 0,
-      stillPictureFlag : (fields & 0x01) !== 0
+      multipleFrameRateFlag : (fields[0] & 0x80) !== 0,
+      frameRateCode : (fields[0] & 0x78) >>> 3,
+      mpeg1OnlyFlag : (fields[0] & 0x04) !== 0,
+      constraintParameterFlag : (fields[0] & 0x02) !== 0,
+      stillPictureFlag : (fields[0] & 0x01) !== 0
     };
     if (result.mpeg1OnlyFlag === true) {
       result.profileAndLevelIndication = b.readUInt8(3);
@@ -38,15 +39,15 @@ module.exports = b => {
     }
     break;
   case 3:
-    var fields = b.readUInt8(2);
+    fields.push(b.readUInt8(2));
     result = {
       type : 'AudioStreamDescriptor',
       descriptorTag : 3,
       descriptorLength : length,
-      freeFormatFlag : (fields & 0x80) !== 0,
-      ID : (fields & 0x40) !== 0,
-      layer : (fields & 0x30) >>> 4,
-      variableRateAudioIndicator : (fields & 0x08) !== 0
+      freeFormatFlag : (fields[0] & 0x80) !== 0,
+      ID : (fields[0] & 0x40) !== 0,
+      layer : (fields[0] & 0x30) >>> 4,
+      variableRateAudioIndicator : (fields[0] & 0x08) !== 0
     };
     break;
   case 4: // Hierarchy descriptor
@@ -107,14 +108,14 @@ module.exports = b => {
     result = backstop(b, 'STDDescriptorRaw');
     break;
   case 18: // IBP descriptor
-    var fields = b.readUInt16BE(2);
+    fields.push(b.readUInt16BE(2));
     result = {
       type : 'IBPDescriptor',
       descriptorTag : 18,
       descriptorLength : length,
-      closedGopFlag : (fields & 0x8000) !== 0,
-      identicalGopFlag : (fields & 0x4000) !== 0,
-      maxGopLength : fields & 0x3fff
+      closedGopFlag : (fields[0] & 0x8000) !== 0,
+      identicalGopFlag : (fields[0] & 0x4000) !== 0,
+      maxGopLength : fields[0] & 0x3fff
     };
     break;
   case 27: // MPEG-4 video descriptor
@@ -167,20 +168,20 @@ module.exports = b => {
     result = backstop(b, 'MetadatSTDDescriptorRaw');
     break;
   case 40: // AVC video descriptor
-    var fields1 = b.readUInt8(3);
-    var fields3 = b.readUInt8(5);
+    fields.push(b.readUInt8(3));
+    fields.push(b.readUInt8(5));
     result = {
       type : 'AVCVideoDescriptor',
       descriptorTag : 40,
       descriptorLength : length,
       profileIDC : b.readUInt8(2),
-      constraintFlag1 : (fields1 & 0x80) !== 0,
-      constraintFlag2 : (fields1 & 0x40) !== 0,
-      constraintFlag3 : (fields3 & 0x20) !== 0,
-      avcCompatibleFlag : (fields & 0x1f),
+      constraintFlag0 : (fields[0] & 0x80) !== 0,
+      constraintFlag1 : (fields[0] & 0x40) !== 0,
+      constraintFlag2 : (fields[0] & 0x20) !== 0,
+      avcCompatibleFlag : (fields[0] & 0x1f),
       levelIDC : b.readUInt8(4),
-      avcStillPresent : (fields3 & 0x80) !== 0,
-      avc24HourPictureFlag : (fields3 & 0x40) !== 0
+      avcStillPresent : (fields[1] & 0x80) !== 0,
+      avc24HourPictureFlag : (fields[1] & 0x40) !== 0
     };
     break;
   case 41: // IPMP descriptor

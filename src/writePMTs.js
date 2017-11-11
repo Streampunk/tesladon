@@ -43,22 +43,22 @@ function writePMTs() {
         };
         var tspp = tsp.payload;
         tspp.writeUInt8(x.pointerField, 0);
-        var patOffset = 1;
-        while (patOffset <= x.pointerField) {
-          tspp.writeUInt8(0xff, patOffset++);
+        var pmtOffset = 1;
+        while (pmtOffset <= x.pointerField) {
+          tspp.writeUInt8(0xff, pmtOffset++);
         }
-        tspp.writeUInt8(x.tableID, patOffset++);
+        tspp.writeUInt8(x.tableID, pmtOffset++);
         var tableHeader = (x.sectionSyntaxHeader ? 0x8000 : 0) | 0x3000 |
           (x.sectionLength & 0x03ff);
-        tspp.writeUInt16BE(tableHeader, patOffset);
-        patOffset += 2;
-        tssp.writeUInt16BE(x.programNum, pmtOffset);
+        tspp.writeUInt16BE(tableHeader, pmtOffset);
+        pmtOffset += 2;
+        tspp.writeUInt16BE(x.programNum, pmtOffset);
         pmtOffset += 2;
         var verCurNext = 0xc0 | ((x.versionNumber & 0x1f) << 1) |
           (x.currentNextIndicator ? 1 : 0);
-        tspp.writeUInt8(verCurNext, patOffset++);
-        tspp.writeUInt8(x.sectionNumber, patOffset++);
-        tspp.writeUInt8(x.lastSectionNumber, patOffset++);
+        tspp.writeUInt8(verCurNext, pmtOffset++);
+        tspp.writeUInt8(x.sectionNumber, pmtOffset++);
+        tspp.writeUInt8(x.lastSectionNumber, pmtOffset++);
         tspp.writeUInt16BE(0xe0 | (x.pcrPid & 0x1fff), pmtOffset);
         pmtOffset += 2;
         tspp.writeUInt16BE(0xf0 | (x.programInfoLength & 0x3ff), pmtOffset);
@@ -82,12 +82,12 @@ function writePMTs() {
             });
           });
         }
-        var crc32 = crc(tspp.slice(x.pointerField + 1, patOffset));
+        var crc32 = crc(tspp.slice(x.pointerField + 1, pmtOffset));
         if (crc32 !== x.CRC)
           console.error('Calculated CRC and existing CRC differ.');
-        tspp.writeUInt32BE(crc32, patOffset);
-        patOffset += 4;
-        for ( var y = patOffset ; y < tspp.length ; y++ ) {
+        tspp.writeUInt32BE(crc32, pmtOffset);
+        pmtOffset += 4;
+        for ( var y = pmtOffset ; y < tspp.length ; y++ ) {
           tspp.writeUInt8(0xff, y);
         }
         continuityCounters[x.pid] = counter % 16;
