@@ -24,4 +24,4 @@ H(fs.createReadStream(process.argv[2]))
   .pipe(tesladon.readTSPackets())
   .pipe(tesladon.writeTSPackets())
   .filter(Buffer.isBuffer)
-  .pipe(outs)
+  .pipe(outs);

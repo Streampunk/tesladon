@@ -36,7 +36,7 @@ function readTSPackets() {
         packet.adaptationField = {
           type : 'AdaptationField',
           adaptationFieldLength : 0
-        }
+        };
       } else {
         var flags = x.readUInt8(5);
         packet.adaptationField = {
@@ -50,8 +50,8 @@ function readTSPackets() {
           splicingPointFlag : (flags & 0x04) !== 0,
           transportPrivateDataFlag : (flags & 0x02) !== 0,
           adaptationFieldExtensionFlag : (flags & 0x01) !== 0
-        }
-      };
+        };
+      }
       var adaptationPosition = 6;
       if (packet.adaptationField.pcrFlag === true) {
         var pcrBase = x.readUInt32BE(adaptationPosition);
@@ -115,11 +115,11 @@ function readTSPackets() {
     }
     if ((packet.adaptationFieldControl & 0x01) !== 0) {
       packet.payload = (packet.adaptationField) ?
-          x.slice(5 + packet.adaptationField.adaptationFieldLength) :
-          x.slice(4);
+        x.slice(5 + packet.adaptationField.adaptationFieldLength) :
+        x.slice(4);
     }
     return packet;
-  }
+  };
   return H.pipeline(H.map(packetMap));
 }
 

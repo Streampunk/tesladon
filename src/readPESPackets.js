@@ -54,14 +54,14 @@ function readPESPackets(filter) {
             pesHeaderLength : x.payload.readUInt8(8)
           };
           switch (pesPacket.ptsDtsIndicator) {
-            case 2:
-              pesPacket.pts = readTimeStamp(x.payload, 9);
-              break;
-            case 3:
-              pesPacket.pts = readTimeStamp(x.payload, 9);
-              pesPacket.dts = readTimeStamp(x.payload, 14);
-            default:
-              break;
+          case 2:
+            pesPacket.pts = readTimeStamp(x.payload, 9);
+            break;
+          case 3:
+            pesPacket.pts = readTimeStamp(x.payload, 9);
+            pesPacket.dts = readTimeStamp(x.payload, 14);
+          default:
+            break;
           }
           pesPacket.payloads = [ x.payload.slice(9 + pesPacket.pesHeaderLength) ];
           if (pesBuilder[x.pid]) {
@@ -75,7 +75,7 @@ function readPESPackets(filter) {
           if (pesBuilder[x.pid]) {
             if (x.payload) // Might be a adaptation field only - no payload
               pesBuilder[x.pid].payloads.push(x.payload);
-          };
+          }
         }
         if (!filter) push(null, x);
       } else {
@@ -83,7 +83,7 @@ function readPESPackets(filter) {
       }
       next();
     }
-  }
+  };
   return H.pipeline(H.consume(pesMaker));
 }
 

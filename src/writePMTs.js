@@ -80,11 +80,11 @@ function writePMTs() {
               var written = writeDescriptor(i, tspp, pmtOffset);
               pmtOffset += written;
             });
-          });;
+          });
         }
         var crc32 = crc(tspp.slice(x.pointerField + 1, patOffset));
         if (crc32 !== x.CRC)
-           console.error("Calculated CRC and existing CRC differ.");
+          console.error('Calculated CRC and existing CRC differ.');
         tspp.writeUInt32BE(crc32, patOffset);
         patOffset += 4;
         for ( var y = patOffset ; y < tspp.length ; y++ ) {
@@ -97,7 +97,7 @@ function writePMTs() {
       }
       next();
     }
-  }
+  };
   return H.pipeline(H.consume(pmtToPacket));
 }
 

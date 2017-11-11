@@ -31,7 +31,7 @@ H(fs.createReadStream(process.argv[2]))
     if (x.type === 'PESPacket') {
       console.log('>>>IN>>>', inCount++, x);
       console.log();
-    };
+    }
   })
   .pipe(tesladon.writePESPackets())
   .pipe(tesladon.readPESPackets(true))
@@ -39,4 +39,4 @@ H(fs.createReadStream(process.argv[2]))
   .each(x => {
     console.log('<<<OUT<<<', outCount++, x);
     console.log();
-  })
+  });

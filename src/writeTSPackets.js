@@ -105,13 +105,13 @@ function writeTSPackets() {
               adaptationPosition += 5;
             }
             for ( var y = adaptationPosition ;
-                    y < extensionStart + afx.adaptationExtensionLength ; y++) {
+              y < extensionStart + afx.adaptationExtensionLength ; y++) {
               b.writeUInt8(0xff, y);
               adaptationPosition++;
             }
           } // end adaptation extensions
           for ( var z = adaptationPosition ;
-                  z < adaptationStart + af.adaptationFieldLength ; z++ ) {
+            z < adaptationStart + af.adaptationFieldLength ; z++ ) {
             b.writeUInt8(0xff, z);
             adaptationPosition++;
           }
@@ -128,7 +128,7 @@ function writeTSPackets() {
       }
       next();
     }
-  }
+  };
   return H.pipeline(H.consume(makeTSPacket));
 }
 

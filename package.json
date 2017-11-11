@@ -4,7 +4,9 @@
   "description": "MPEG transport stream library for Node.js.",
   "main": "index.js",
   "scripts": {
-    "test": "tape test/*Spec.js"
+    "test": "tape test/*Spec.js",
+    "lint": "eslint **/*.js",
+    "lint-fix": "eslint --fix **/*.js"
   },
   "repository": {
     "type": "git",
@@ -23,7 +25,11 @@
   "homepage": "https://github.com/Streampunk/tesladon#readme",
   "dependencies": {
     "crc": "^3.4.4",
-    "highland": "^2.10.1",
-    "tape": "^4.6.3"
+    "highland": "^2.10.1"
+  },
+  "devDependencies": {
+    "eslint": "^4.9.0",
+    "eslint-config-google": "^0.9.1",
+    "tape": "^4.8.0"
   }
 }

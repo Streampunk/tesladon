@@ -63,7 +63,7 @@ function readPAT(filter) {
       }
       next();
     }
-  }
+  };
   return H.pipeline(H.consume(makePAT));
 }
 

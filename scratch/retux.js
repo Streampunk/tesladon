@@ -17,7 +17,7 @@ var tesladon = require('..');
 var H = require('highland');
 var fs = require('fs');
 
-H(fs.createReadStream("C:/Users/sparkpunk/Documents/media/20170107-211500-taboo.ts"))
+H(fs.createReadStream('C:/Users/sparkpunk/Documents/media/20170107-211500-taboo.ts'))
   .pipe(tesladon.bufferGroup(188))
   .pipe(tesladon.readTSPackets())
   .pipe(tesladon.readPAT(true))

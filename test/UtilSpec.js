@@ -35,7 +35,7 @@ test('Check the zero value', t => {
   var b = Buffer.alloc(5);
   writeTimeStamp(0, 0, b, 0);
   t.equal(readTimeStamp(b, 0), 0, 'Roundtrips OK.');
-  t.ok(checkOnes(b), 'has reserved values set to 1.')
+  t.ok(checkOnes(b), 'has reserved values set to 1.');
   t.end();
 });
 
@@ -44,7 +44,7 @@ test('Check the max value', t => {
   var max = 0x1ffffffff;
   writeTimeStamp(max, 0, b, 0);
   t.equal(readTimeStamp(b, 0), max, 'roundtrips OK.');
-  t.ok(checkOnes(b), 'has reserved values set to 1.')
+  t.ok(checkOnes(b), 'has reserved values set to 1.');
   t.end();
 });
 
@@ -53,7 +53,7 @@ test('Rolls over the max value plus one', t => {
   var max = 0x200000000;
   writeTimeStamp(max, 0, b, 0);
   t.equal(readTimeStamp(b, 0), 0, 'rollovers OK.');
-  t.ok(checkOnes(b), 'has reserved values set to 1.')
+  t.ok(checkOnes(b), 'has reserved values set to 1.');
   t.end();
 });
 
@@ -62,7 +62,7 @@ test('Rolls over the max value plus two', t => {
   var max = 0x200000001;
   writeTimeStamp(max, 0, b, 0);
   t.equal(readTimeStamp(b, 0), 1, 'rollovers OK.');
-  t.ok(checkOnes(b), 'has reserved values set to 1.')
+  t.ok(checkOnes(b), 'has reserved values set to 1.');
   t.end();
 });
 
@@ -72,7 +72,7 @@ test('Is OK across 15 bit boundary', t => {
     writeTimeStamp(x, 0, b, 0);
     t.equal(readTimeStamp(b, 0), x, `roundtrips OK at ${x}.`);
     t.ok(checkOnes(b), 'has reserved values set to 1.');
-  };
+  }
   t.end();
 });
 
@@ -82,7 +82,7 @@ test('Is OK across 30 bit boundary', t => {
     writeTimeStamp(x, 0, b, 0);
     t.equal(readTimeStamp(b, 0), x, `roundtrips OK at ${x}.`);
     t.ok(checkOnes(b), 'has reserved values set to 1.');
-  };
+  }
   t.end();
 });
 
@@ -93,7 +93,7 @@ test('Is OK for 1000 random values', t => {
     writeTimeStamp(n, 0, b, 0);
     t.equal(readTimeStamp(b, 0), n, `roundtrips OK for random value ${n}.`);
     t.ok(checkOnes(b), 'has reserved values set to 1.');
-  };
+  }
   t.end();
 });
 
@@ -101,11 +101,11 @@ var roundTime = x => ptpTimeToTsTime(tsTimeToPTPTime(x));
 const tsDay = Math.pow(2, 33);
 
 test('Check TS to PTP timestamp edge values', t => {
-  t.equal(roundTime(0), 0, "zero roundtrips OK.");
-  t.equal(roundTime(tsDay), 0, "2**33 wraps around to 0.");
-  t.equal(roundTime(tsDay - 1), tsDay - 1, "maximum value is preserved.");
-  t.equal(roundTime(tsDay + 1), 1, "maximum value plus one wraps around.");
-  t.equal(roundTime(tsDay * 2), 0, "double wrap around.");
+  t.equal(roundTime(0), 0, 'zero roundtrips OK.');
+  t.equal(roundTime(tsDay), 0, '2**33 wraps around to 0.');
+  t.equal(roundTime(tsDay - 1), tsDay - 1, 'maximum value is preserved.');
+  t.equal(roundTime(tsDay + 1), 1, 'maximum value plus one wraps around.');
+  t.equal(roundTime(tsDay * 2), 0, 'double wrap around.');
   t.end();
 });
 
@@ -118,6 +118,6 @@ test('Timestamps roundtrip at 1000 random values', t => {
     t.ok(ptp[0] > (Date.now() / 1000 - 100000), 'seconds part is recent.');
     t.ok(ptp[1] < 1000000000, 'part seconds is less than a second.');
     t.equal(ptpTimeToTsTime(ptp), ts, `roundtrip of value ${ts} OK.`);
-  };
+  }
   t.end();
 });

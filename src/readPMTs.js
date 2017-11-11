@@ -69,7 +69,7 @@ function readPMTs(filter) {
             console.log(nextDescriptor);
             pmt.programInfo.push(nextDescriptor.result);
             remaining = nextDescriptor.remaining;
-          };
+          }
           pmtOffset += pmt.programInfoLength;
           while (pmtOffset < pmt.sectionLength - 4) {
             var streamType = x.payload.readUInt8(pmtOffset);
@@ -88,9 +88,9 @@ function readPMTs(filter) {
               var nextDescriptor = readDescriptor(remaining);
               pmt.esStreamInfo[elementaryPid].esInfo.push(nextDescriptor.result);
               remaining = nextDescriptor.remaining;
-            };
+            }
             pmtOffset += esInfoLength;
-          };
+          }
           pmt.CRC = x.payload.readUInt32BE(pmtOffset);
           if (!filter) push(null, x);
           push(null, pmt);
@@ -102,6 +102,6 @@ function readPMTs(filter) {
     }
   };
   return H.pipeline(H.consume(makePMTs));
-};
+}
 
 module.exports = readPMTs;

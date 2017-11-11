@@ -22,7 +22,7 @@ function bufferGroup (g) {
       push(err);
       next();
     } else if (x === H.nil) {
-        push(null, x);
+      push(null, x);
     } else {
       var bufs = [];
       var pointer = 0;
@@ -39,8 +39,8 @@ function bufferGroup (g) {
       else remaining = null;
       next();
     }
-  }
-  return H.pipeline(H.consume(group))
+  };
+  return H.pipeline(H.consume(group));
 }
 
 module.exports = bufferGroup;

@@ -53,15 +53,15 @@ function writePESPackets() {
           ((x.extensionFlag === true) ? 0x0001 : 0x0000), 6);
         hpp.writeUInt8(x.pesHeaderLength, 8);
         switch (x.ptsDtsIndicator) {
-          case 2:
-            writeTimeStamp(x.pts, 0x20, hpp, 9);
-            break;
-          case 3:
-            writeTimeStamp(x.pts, 0x30, hpp, 9);
-            writeTimeStamp(x.dts, 0x10, hpp, 14);
-            break;
-          default:
-            break;
+        case 2:
+          writeTimeStamp(x.pts, 0x20, hpp, 9);
+          break;
+        case 3:
+          writeTimeStamp(x.pts, 0x30, hpp, 9);
+          writeTimeStamp(x.dts, 0x10, hpp, 14);
+          break;
+        default:
+          break;
         }
         var data = (x.payloads.length === 1) ? x.payloads[0] :
           Buffer.concat(x.payloads);
@@ -83,7 +83,7 @@ function writePESPackets() {
             adaptationFieldControl : 1,
             continuityCounter : counter++,
             payload : payloadStart ? Buffer.concat(
-                [hpp, data.slice(0, available)]) :
+              [hpp, data.slice(0, available)]) :
               data.slice(dataPos, dataPos + 184)
           };
           counter = counter % 16;
@@ -91,11 +91,11 @@ function writePESPackets() {
           push(null, nextPacket);
           payloadStart = false;
           available = 184;
-        };
+        }
         if (data.length - dataPos > 0) {
           var adaptationLength = 183 - (payloadStart ?
-              (data.length - dataPos) + hpp.length :
-              (data.length - dataPos));
+            (data.length - dataPos) + hpp.length :
+            (data.length - dataPos));
           var finalPacket = {
             type : 'TSPacket',
             packetSync : 0x47,
