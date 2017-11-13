@@ -13,24 +13,28 @@
   limitations under the License.
 */
 
-var H = require('highland');
+const H = require('highland');
 
 function bufferGroup (g) {
-  var remaining = null;
+  var remaining = [];
   var group = x => {
     var bufs = [];
     var pointer = 0;
-    if (remaining) {
-      bufs.push(Buffer.concat([remaining, x.slice(0, g - remaining.length)], 188));
-      pointer = g - remaining.length;
+    if (remaining.length > 0) {
+      let remainingSize = remaining.reduce((x, y) => x + y.length, 0);
+      if (remainingSize + x.length > g) {
+        remaining.push(x.slice(0, g - remainingSize));
+        bufs.push(Buffer.concat(remaining, 188));
+        pointer = g - remainingSize;
+        remaining = [];
+      }
     }
     while (pointer <= x.length - g) {
       bufs.push(x.slice(pointer, pointer + g));
       pointer += g;
     }
     if (pointer < x.length)
-      remaining = x.slice(pointer);
-    else remaining = null;
+      remaining.push(x.slice(pointer));
     return H(bufs);
   };
   return H.pipeline(H.flatMap(group));

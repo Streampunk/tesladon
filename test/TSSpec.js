@@ -13,11 +13,10 @@
   limitations under the License.
 */
 
-var test = require('tape');
-var tesladon = require('../index.js');
-var H = require('highland');
-
-var fs = require('fs');
+const test = require('tape');
+const tesladon = require('../index.js');
+const H = require('highland');
+const fs = require('fs');
 
 test('Check the roundtrip of TS packets', t => {
   var packetBytes = null;

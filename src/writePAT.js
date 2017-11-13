@@ -14,7 +14,7 @@
 */
 
 var H = require('highland');
-var crc = require('./util.js').crc;
+var crc = require('./util.js').crcMpeg;
 
 function writePAT() {
   var contCounter = 0;

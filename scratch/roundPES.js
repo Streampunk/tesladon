@@ -13,16 +13,16 @@
   limitations under the License.
 */
 
-var tesladon = require('..');
-var H = require('highland');
-var fs = require('fs');
+const tesladon = require('..');
+const H = require('highland');
+const fs = require('fs');
 
 var inCount = 0;
 var outCount = 0;
 
 H(fs.createReadStream(process.argv[2]))
   .pipe(tesladon.bufferGroup(188))
-  .pipe(tesladon.readTSPackets())
+  .pipe(tesladon.readrouTSPackets())
   .pipe(tesladon.readPAT(true))
   .pipe(tesladon.readPMTs(true))
   .pipe(tesladon.readPESPackets(true))

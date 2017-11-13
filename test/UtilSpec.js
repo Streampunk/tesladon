@@ -13,11 +13,11 @@
   limitations under the License.
 */
 
-var readTimeStamp = require('../src/util.js').readTimeStamp;
-var writeTimeStamp = require('../src/util.js').writeTimeStamp;
-var tsTimeToPTPTime = require('../src/util.js').tsTimeToPTPTime;
-var ptpTimeToTsTime = require('../src/util.js').ptpTimeToTsTime;
-var test = require('tape');
+const readTimeStamp = require('../src/util.js').readTimeStamp;
+const writeTimeStamp = require('../src/util.js').writeTimeStamp;
+const tsTimeToPTPTime = require('../src/util.js').tsTimeToPTPTime;
+const ptpTimeToTsTime = require('../src/util.js').ptpTimeToTsTime;
+const test = require('tape');
 
 function getRandomInt(min, max) {
   min = Math.ceil(min);

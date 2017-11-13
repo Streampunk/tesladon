@@ -13,9 +13,9 @@
   limitations under the License.
 */
 
-var tesladon = require('..');
-var H = require('highland');
-var fs = require('fs');
+const tesladon = require('..');
+const H = require('highland');
+const fs = require('fs');
 
 H(fs.createReadStream(process.argv[2]))
   .pipe(tesladon.bufferGroup(188))

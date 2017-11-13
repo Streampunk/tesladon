@@ -63,7 +63,7 @@ function readPMTs(filter) {
           pmt.programInfo = [];
           var remaining =
             x.payload.slice(pmtOffset, pmtOffset + pmt.programInfoLength);
-          console.log('>>>', remaining.length, pmtOffset, pmt.programInfoLength);
+          // console.log('>>>', remaining.length, pmtOffset, pmt.programInfoLength);
           while (remaining.length >= 2) {
             let nextDescriptor = readDescriptor(remaining);
             console.log(nextDescriptor);
