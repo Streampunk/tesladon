@@ -33,7 +33,9 @@ function writeTSPackets() {
       if ((x.adaptationFieldControl & 0x02) !== 0) {
         var af = x.adaptationField;
         b.writeUInt8(af.adaptationFieldLength, 4);
-        if (af.adaptationFieldLength > 0) {
+        let adaptationStart = 4;
+        let adaptationPosition = 5;
+        if (af.adaptationFieldLength > 0) { // when == 0, adaptation is single stuffing byte
           var flags = (af.discontinuityIndicator ? 0x80 : 0) |
             (af.randomAccessIndicator ? 0x40 : 0) |
             (af.elementaryStreamPriorityIndicator ? 0x20 : 0) |
@@ -43,11 +45,10 @@ function writeTSPackets() {
             (af.transportPrivateDataFlag ? 0x02 : 0) |
             (af.adaptationFieldExtensionFlag ? 0x01 : 0);
           b.writeUInt8(flags, 5);
+          adaptationPosition++;
         }
-        let adaptationStart = 4;
-        let adaptationPosition = 5;
         if (af.pcrFlag === true) {
-          console.log('>>>pcr-out', af.pcr);
+          // console.log('>>>pcr-out', af.pcr);
           let pcrBase = Math.floor(af.pcr / 600);
           let pcrExtension = af.pcr % 300;
           b.writeUInt32BE(pcrBase, adaptationPosition);
@@ -55,9 +56,8 @@ function writeTSPackets() {
             adaptationPosition + 4);
           adaptationPosition += 6;
         }
-
         if (af.opcrFlag === true) {
-          console.log('>>>opcr-out', af.opcr);
+          // console.log('>>>opcr-out', af.opcr);
           let opcrBase = Math.floor(af.opcr / 600);
           let opcrExtension = af.opcr % 300;
           b.writeUInt32BE(opcrBase, adaptationPosition);
@@ -70,11 +70,10 @@ function writeTSPackets() {
           adaptationPosition++;
         }
         if (af.transportPrivateDataFlag === true) {
-          b.writeUInt8(af.transportPrivateDataLength, adaptationPosition);
+          b.writeUInt8(af.transportPrivateData.length, adaptationPosition);
           adaptationPosition++;
-          af.transportPrivateData.copy(b, adaptationPosition,
-            0, af.transportPrivateDataLength);
-          adaptationPosition += af.transportPrivateDataLength;
+          af.transportPrivateData.copy(b, adaptationPosition);
+          adaptationPosition += af.transportPrivateData.length;
         }
         if (af.adaptationFieldExtensionFlag === true) {
           var afx = af.adaptationFieldExtension;

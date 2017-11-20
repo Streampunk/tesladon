@@ -58,21 +58,21 @@ function readTSPackets() {
       if (packet.adaptationField.pcrFlag === true) {
         let pcrBase = x.readUInt32BE(adaptationPosition);
         let pcrExtension = x.readUInt16BE(adaptationPosition + 4);
-        console.log('>>>pcr', packet.adaptationField.pcrFlag, pcrBase.toString(16), pcrExtension.toString(16), (((pcrExtension & 0x8000) !== 0) ? 1 : 0));
+        // console.log('>>>pcr', packet.adaptationField.pcrFlag, pcrBase.toString(16), pcrExtension.toString(16), (((pcrExtension & 0x8000) !== 0) ? 1 : 0));
         pcrBase = pcrBase * 2 + (((pcrExtension & 0x8000) !== 0) ? 1 : 0);
         pcrExtension = pcrExtension & 0x1ff;
         packet.adaptationField.pcr = pcrBase * 300 + pcrExtension;
-        console.log('>>>pcr-in', pcrBase * 300 + pcrExtension);
+        // console.log('>>>pcr-in', pcrBase * 300 + pcrExtension);
         adaptationPosition += 6;
       }
       if (packet.adaptationField.opcrFlag === true) {
         let opcrBase = x.readUInt32BE(adaptationPosition);
         let opcrExtension = x.readUInt16BE(adaptationPosition + 4);
-        console.log('>>>opcr', packet.adaptationField.opcrFlag, opcrBase.toString(16), opcrExtension.toString(16),  (((opcrExtension & 0x8000) !== 0) ? 1 : 0));
+        // console.log('>>>opcr', packet.adaptationField.opcrFlag, opcrBase.toString(16), opcrExtension.toString(16),  (((opcrExtension & 0x8000) !== 0) ? 1 : 0));
         opcrBase = opcrBase * 2 + (((opcrExtension & 0x8000) !== 0) ? 1 : 0);
         opcrExtension = opcrExtension & 0x1ff;
         packet.adaptationField.opcr = opcrBase * 300 + opcrExtension;
-        console.log('>>>opcr-in', opcrBase * 300 + opcrExtension);
+        // console.log('>>>opcr-in', opcrBase * 300 + opcrExtension);
         adaptationPosition += 6;
       }
       if (packet.adaptationField.splicingPointFlag === true) {
@@ -80,7 +80,7 @@ function readTSPackets() {
         adaptationPosition++;
       }
       if (packet.adaptationField.transportPrivateDataFlag === true) {
-        var transportPrivateDataLength = x.readUInt8(adaptationPosition);
+        let transportPrivateDataLength = x.readUInt8(adaptationPosition);
         adaptationPosition++;
         packet.adaptationField.transportPrivateData =
           x.slice(adaptationPosition, adaptationPosition + transportPrivateDataLength);

@@ -1,7 +1,7 @@
 [![CircleCI](https://circleci.com/gh/Streampunk/tesladon.svg?style=shield&circle-token=:circle-token)](https://circleci.com/gh/Streampunk/tesladon)
 # tesladon
 
-[MPEG transport stream](https://en.wikipedia.org/wiki/MPEG_transport_stream) library for [Node.js](http://nodejs.org/). Uses [Highland](http://highlandjs.org/) reactive streams library to provide a set of mappings from binary transport stream packets to and from Javascript objects with embedded Buffer payloads.
+[MPEG transport stream](https://en.wikipedia.org/wiki/MPEG_transport_stream) library for [Node.js](http://nodejs.org/). Uses the [highland](http://highlandjs.org/) reactive streams library to provide a set of mappings between binary transport stream packets to and from Javascript objects with embedded Buffer payloads.
 
 The philosophy is to read/consume any stream (file, network, ASI), turn it into Javascript objects that represent transport stream packets and then add to the stream additional JSON objects for Program Association Tables, Program Map Tables and PES packets. The user of the stream can then filter out the information that is of interest to them. Each stage can either pass on the packets it has processed, or filter them out.
 
