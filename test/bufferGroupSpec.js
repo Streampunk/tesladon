@@ -16,16 +16,11 @@
 const test = require('tape');
 const H = require('highland');
 const bufferGroup = require('../index.js').bufferGroup;
+const getRandomInt = require('./testUtil.js').getRandomInt;
 
 var testBytes = Buffer.alloc(188*42);
 for ( var i = 0 ; i < 188*42 ; i++ ) {
   testBytes[i] = i % 188;
-}
-
-function getRandomInt(min, max) {
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min)) + min;
 }
 
 test('Splits into 188 chunks', t => {

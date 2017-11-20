@@ -45,10 +45,10 @@ var argv = require('yargs')
 H(fs.createReadStream(argv._[0]))
   .pipe(tesladon.bufferGroup(188))
   .pipe(tesladon.readTSPackets())
-  .pipe(tesladon.readPAT(true))
-  .pipe(tesladon.readPMTs(true))
-  .pipe(tesladon.readPESPackets(true))
-  .filter(x => x.type !== 'TSPacket')
+//  .pipe(tesladon.readPAT(true))
+//  .pipe(tesladon.readPMTs(true))
+//  .pipe(tesladon.readPESPackets(true))
+//  .filter(x => x.type !== 'TSPacket')
   .map(x => {
     if (x.type === 'PESPacket') {
       x.payloads = {

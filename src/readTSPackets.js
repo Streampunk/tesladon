@@ -30,6 +30,8 @@ function readTSPackets() {
       adaptationFieldControl : (header & 0x30) >>> 4,
       continuityCounter : (header & 0xf)
     };
+    if (packet.packetSync !== 0x47)
+      throw new Error('Packet does not start with specified sync byte.');
     if ((packet.adaptationFieldControl & 0x2) !== 0) {
       var adaptationLength = x.readUInt8(4);
       if (adaptationLength === 0) {
@@ -54,23 +56,27 @@ function readTSPackets() {
       }
       var adaptationPosition = 6;
       if (packet.adaptationField.pcrFlag === true) {
-        var pcrBase = x.readUInt32BE(adaptationPosition);
-        var pcrExtension = x.readUInt16BE(adaptationPosition + 4);
+        let pcrBase = x.readUInt32BE(adaptationPosition);
+        let pcrExtension = x.readUInt16BE(adaptationPosition + 4);
+        console.log('>>>pcr', packet.adaptationField.pcrFlag, pcrBase.toString(16), pcrExtension.toString(16), (((pcrExtension & 0x8000) !== 0) ? 1 : 0));
         pcrBase = pcrBase * 2 + (((pcrExtension & 0x8000) !== 0) ? 1 : 0);
         pcrExtension = pcrExtension & 0x1ff;
         packet.adaptationField.pcr = pcrBase * 300 + pcrExtension;
+        console.log('>>>pcr-in', pcrBase * 300 + pcrExtension);
         adaptationPosition += 6;
       }
       if (packet.adaptationField.opcrFlag === true) {
-        var opcrBase = x.readUInt32BE(adaptationPosition);
-        var opcrExtension = x.readUInt16BE(adaptationPosition + 4);
+        let opcrBase = x.readUInt32BE(adaptationPosition);
+        let opcrExtension = x.readUInt16BE(adaptationPosition + 4);
+        console.log('>>>opcr', packet.adaptationField.opcrFlag, opcrBase.toString(16), opcrExtension.toString(16),  (((opcrExtension & 0x8000) !== 0) ? 1 : 0));
         opcrBase = opcrBase * 2 + (((opcrExtension & 0x8000) !== 0) ? 1 : 0);
         opcrExtension = opcrExtension & 0x1ff;
         packet.adaptationField.opcr = opcrBase * 300 + opcrExtension;
+        console.log('>>>opcr-in', opcrBase * 300 + opcrExtension);
         adaptationPosition += 6;
       }
       if (packet.adaptationField.splicingPointFlag === true) {
-        packet.adaptationField.spliceCountdown = x.readUInt8(adaptationPosition);
+        packet.adaptationField.spliceCountdown = x.readInt8(adaptationPosition);
         adaptationPosition++;
       }
       if (packet.adaptationField.transportPrivateDataFlag === true) {
@@ -84,6 +90,7 @@ function readTSPackets() {
         // console.log(x, adaptationPosition, packet);
         var adaptExtFlags = x.readUInt8(adaptationPosition + 1);
         packet.adaptationField.adaptationFieldExtension = {
+          type: 'AdaptationFieldExtension',
           adaptationExtensionLength : x.readUInt8(adaptationPosition),
           legalTimeWindowFlag : (adaptExtFlags & 0x80) !== 0,
           piecewiseRateFlag : (adaptExtFlags & 0x40) !== 0,

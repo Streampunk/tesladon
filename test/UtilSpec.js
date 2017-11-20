@@ -18,18 +18,8 @@ const writeTimeStamp = require('../src/util.js').writeTimeStamp;
 const tsTimeToPTPTime = require('../src/util.js').tsTimeToPTPTime;
 const ptpTimeToTsTime = require('../src/util.js').ptpTimeToTsTime;
 const test = require('tape');
-
-function getRandomInt(min, max) {
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min)) + min;
-}
-
-function checkOnes(b, o) {
-  return ((b.readUInt8(o) & 0x01) === 1) &&
-    ((b.readUInt8(o + 2) & 0x01) === 1) &&
-    ((b.readUInt8(o + 4) & 0x01) === 1);
-}
+const getRandomInt = require('./testUtil.js').getRandomInt;
+const checkOnes = require('./testUtil.js').checkOnes;
 
 test('Check the zero value', t => {
   var b = Buffer.alloc(5);
