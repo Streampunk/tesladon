@@ -16,7 +16,7 @@
 const test = require('tape');
 const tesladon = require('../index.js');
 const H = require('highland');
-const fs = require('fs');
+// const fs = require('fs');
 const getRandomInt = require('./testUtil.js').getRandomInt;
 const getRandomBoolean = require('./testUtil.js').getRandomBoolean;
 const assert = require('assert');
@@ -99,7 +99,7 @@ function makeRandomPacket () {
   return p;
 }
 
-const emptyPayload = Buffer.alloc(184, 0xff);
+// const emptyPayload = Buffer.alloc(184, 0xff);
 
 /* test('Check the roundtrip of TS packets', t => {
   var packetBytes = null;

@@ -36,7 +36,7 @@ function readPAT(filter) {
           tableID : x.payload.readUInt8(patOffset),
           sectionSyntaxHeader : (tableHeader & 0X8000) !== 0,
           privateBit : (tableHeader & 0x4000) !== 0,
-          sectionLength : tableHeader & 0x03ff,
+          sectionLength : tableHeader & 0x0fff,
           transportStreamIdentifier : x.payload.readUInt16BE(patOffset + 3),
           versionNumber : x.payload.readUInt8(patOffset + 5) & 0x3c / 2 | 0,
           currentNextIndicator : (x.payload.readUInt8(patOffset + 5) & 0x01) !== 0,
