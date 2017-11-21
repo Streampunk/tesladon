@@ -38,8 +38,9 @@ test('Splits into 188 chunks', t => {
 });
 
 test('Divided test bytes produces same result', t => {
-  for ( var x = 0 ; x < 10 ; x++ ) {
-    var splitPoint = getRandomInt(0, 188*42);
+  for ( var x = 0 ; x < 200 ; x++ ) {
+    let y = x % 42;
+    var splitPoint = getRandomInt(188 * y, 188 * (y + 1));
     var count = 0;
     H([testBytes.slice(0, splitPoint), testBytes.slice(splitPoint)])
       .through(bufferGroup(188))
@@ -48,9 +49,24 @@ test('Divided test bytes produces same result', t => {
         t.deepEqual(x, testBytes.slice(0, 188), `group ${count++} with split point ${splitPoint} is 0 -> 188.`);
       })
       .done(() => {
-        t.equal(count, 42, 'has 188 groups.');
+        t.equal(count, 42, `has 42 groups with split point ${splitPoint}.`);
       });
   }
+  t.end();
+});
+
+test('Divided test bytes produces same result swith split at end', t => {
+  var splitPoint = getRandomInt(188, 188*2);
+  var count = 0;
+  H([testBytes.slice(0, splitPoint), testBytes.slice(splitPoint, 188*2)])
+    .through(bufferGroup(188))
+    .errors(t.fail)
+    .each(x => {
+      t.deepEqual(x, testBytes.slice(0, 188), `group ${count++} with split point ${splitPoint} is 0 -> 188.`);
+    })
+    .done(() => {
+      t.equal(count, 2, `has 42 groups with split point ${splitPoint}.`);
+    });
   t.end();
 });
 

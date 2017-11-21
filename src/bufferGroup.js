@@ -22,7 +22,7 @@ function bufferGroup (g) {
     var pointer = 0;
     if (remaining.length > 0) {
       let remainingSize = remaining.reduce((x, y) => x + y.length, 0);
-      if (remainingSize + x.length > g) {
+      if (remainingSize + x.length >= g) {
         remaining.push(x.slice(0, g - remainingSize));
         bufs.push(Buffer.concat(remaining, 188));
         pointer = g - remainingSize;
