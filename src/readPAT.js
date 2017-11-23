@@ -25,14 +25,15 @@ function readPAT(filter = true) {
         type: 'ProgramAssociationTable',
         pid: 0,
         tableID: x.sections[0].tableID,
-        transportStreamID: x.sections[0].payload.readUInt16BE(3),
-        versionNumber: (x.sections[0].payload.readInt8(5) & 0x3e) >> 1,
-        currentNextIndicator: x.sections[0].payload.readInt8(5) & 0x01,
+        // sectionSyntaxIndicator: 1, These need to be written in PATPayload
+        // privateBit: 0,
+        transportStreamID: x.sections[0].tableIDExtension,
+        versionNumber: x.sections[0].versionNumber,
+        currentNextIndicator: x.sections[0].currentNextIndicator,
         sectionCount: x.sections[0].lastSectionNumber + 1,
         table: {}
       };
-      console.log('>>>', x.sections[0].payload.slice(0, 10));
-      var tableData = Buffer.concat(x.sections.map(s => s.payload.slice(8)));
+      var tableData = Buffer.concat(x.sections.map(s => s.payload));
       for ( var p = 0 ; p < tableData.length; p += 4) {
         pat.table[tableData.readUInt16BE(p)] =
           tableData.readUInt16BE(p + 2) & 0x1fff;

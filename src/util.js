@@ -98,6 +98,25 @@ var crc = b => {
   return crc & 0xffffffff;
 };
 
+var tableIDName = {
+  0x00 : 'program_association_section',
+  0x01 : 'conditional_access_section',
+  0x02 : 'TS_program_map_section',
+  0x03 : 'TS_description_section',
+  0x04 : 'ISO_IEC_14496_scene_description_section',
+  0x05 : 'ISO_IEC_14996_object_descriptor_section',
+  0x06 : 'metadata_section',
+  0x07 : 'IPMP_control_information_section',
+  0xff : 'forbidden'
+};
+for ( let x = 0x08 ; x <= 0x3f ; x++ )
+  tableIDName[x] = `ISO/IEC_13818-1_reserved_0x${x.toString(16)}`;
+for ( let x = 0x40 ; x < 0xff ; x++ )
+  tableIDName[x] = `user_private_0x${x.toString(16)}`;
+
+var tableNameID = {};
+for ( let id in tableIDName ) tableNameID[tableIDName[id]] = id;
+
 function sectionCollector(pid, filter = true) {
   var section = null;
   var collector = x => {
@@ -109,21 +128,29 @@ function sectionCollector(pid, filter = true) {
           type: 'PSISection',
           pid: pid,
           pointerField: pointerFieldOffset - 1,
-          tableID: x.payload.readInt8(pointerFieldOffset),
+          tableID: tableIDName[x.payload.readInt8(pointerFieldOffset)],
           sectionSyntaxIndicator: (tableHeader & 0x8000) >>> 15,
           privateBit: (tableHeader & 0x4000) >>> 14,
           length: tableHeader & 0x0fff,
-          pos: 0,
-          sectionNumber: x.payload.readUInt8(pointerFieldOffset + 6),
-          lastSectionNumber: x.payload.readUInt8(pointerFieldOffset + 7)
+          pos: 3
         };
+        if (section.sectionSyntaxIndicator === 1) {
+          section.tableIDExtension = x.payload.readUInt16BE(pointerFieldOffset + 3);
+          section.versionNumber = (x.payload.readInt8(pointerFieldOffset + 5) & 0x3e) >> 1;
+          section.currentNextIndicator = x.payload.readInt8(pointerFieldOffset + 5) & 0x01;
+          section.sectionNumber = x.payload.readUInt8(pointerFieldOffset + 6);
+          section.lastSectionNumber = x.payload.readUInt8(pointerFieldOffset + 7);
+          section.pos += 5;
+        }
         if (section.length > 1021) {
           console.log(`Warning: Received section header for PID ${pid} with length ${section.length} exceeding maximum of 1021.`);
           section.length = 1021;
         }
-        section.payload = Buffer.alloc(section.length + 3);
+        section.payload = Buffer.alloc(section.length - 5);
+        section.pos += x.payload.copy(section.payload, 0, section.pos + pointerFieldOffset);
+      } else {
+        section.pos += x.payload.copy(section.payload, 0, section.pos);
       }
-      section.pos += x.payload.copy(section.payload, section.pos, pointerFieldOffset);
       if (section.pos >= section.length + 3) {
         let result = section;
         result.CRC = result.payload.readUInt32BE(result.payload.length - 4);
@@ -175,6 +202,128 @@ function psiCollector(pid, filter = true) {
     tableCollector(pid, filter) );
 }
 
+function tableDistributor (type, pid) {
+  const typeName = type + 'Payload';
+  var distributor = t => {
+    if (t.type === typeName && t.pid === pid) {
+      var psiSecs = {
+        type: 'PSISections',
+        pid: pid,
+        sections: []
+      };
+      var pos = 0;
+      var secNo = 0;
+      while (pos < t.payload.length) {
+        var sec = {
+          type: 'PSISection',
+          pid: pid,
+          pointerField: 0,
+          tableID: t.tableID,
+          sectionSyntaxIndicator: t.sectionSyntaxIndicator,
+          privateBit: t.privateBit,
+          length: 0
+        };
+        if (t.sectionSyntaxIndicator === 1) {
+          sec.tableIDExtension = t.tableIDExtension;
+          sec.versionNumber = t.versionNumber;
+          sec.currentNextIndicator = t.currentNextIndicator;
+          sec.sectionNumber = secNo++;
+          sec.length += 5;
+        }
+        sec.payload = t.payload.slice(pos, pos + 1017 - sec.length);
+        sec.length += sec.payload.length + 4; // Allow space for CRC value
+        pos += sec.payload.length;
+        psiSecs.sections.push(sec);
+      }
+      psiSecs.sections.forEach(s => {
+        s.lastSectionNumber = psiSecs.sections.length - 1;
+      });
+      return psiSecs;
+    } else {
+      return t;
+    }
+  };
+  return H.pipeline(H.map(distributor));
+}
+
+function sectionDistributor (pid) {
+  var distributor = s => {
+    if (s.type === 'PSISections' && s.pid === pid) {
+      var tsps = [];
+      var pos = 0;
+      for ( var sec of s.sections ) {
+        var tsp = {
+          type: 'TSPacket',
+          packetSync: 0x47,
+          transportErrorIndicator: false,
+          payloadUnitStartIndicator: true,
+          transportPriority: false,
+          pid: pid,
+          scramblingControl: 1,
+          adaptationFieldControl: 1,
+          continuityCounter: 0,
+          payload: Buffer.allocUnsafe(184)
+        };
+        tsp.payload.writeUInt8(sec.pointerField, 0);
+        for ( pos = 1 ; pos <= sec.pointerField ; pos++ )
+          tsp.payload.writeInt8(0xff, pos);
+        tsp.payload.writeUInt8(tableNameID[sec.tableID], pos);
+        let tableHeader =
+          (sec.sectionSyntaxIndicator === 1 ? 0x8000 : 0) |
+          (sec.privateBit === 1 ? 0x4000 : 0) |
+          0x3000 | // reserved bits all on
+          sec.length & 0x03ff;
+        tsp.writeUInt16BE(tableHeader, pos + 1);
+        if (sec.sectionSyntaxIndicator === 1) {
+          tsp.payload.writeUInt16BE(sec.tableIDExtension, pos + 3);
+          var versionByte = 0xc |
+            ((sec.versionNumber & 0x1f) << 1) |
+            (sec.currentNextIndicator & 0x1);
+          tsp.payload.writeUInt8(versionByte, pos + 5);
+          tsp.payload.writeUInt8(sec.sectionNumber, pos + 6);
+          tsp.payload.writeUInt8(sec.lastSectionNumber, pos + 7);
+        }
+        sec.CRC = crc(Buffer.concat([
+          tsp.payload.slice(0, 8),
+          sec.payload.slice(0, -4) ], sec.playload.length + 4));
+        sec.payload.writeUInt32BE(sec.CRC, sec.payload.length - 4);
+        var posInSec = sec.payload.copy(tsp.payload, pos + 8, 0);
+        tsp.payload.fill(0xff, pos + 8 + posInSec);
+        tsps.push(tsp);
+        while (posInSec < sec.payload) {
+          tsp = {
+            type: 'TSPacket',
+            packetSync: 0x47,
+            transportErrorIndicator: false,
+            payloadUnitStartIndicator: false,
+            transportPriority: false,
+            pid: pid,
+            scramblingControl: 1,
+            adaptationFieldControl: 1,
+            continuityCounter: 0,
+            payload: Buffer.allocUnsafe(184)
+          };
+          let written = sec.payload.copy(tsp.payload, 0, posInSec);
+          posInSec += written;
+          tsp.payload.fill(0xff, written);
+          tsps.push(tsp);
+        }
+      }
+      return H(tsps);
+    } else {
+      return H([s]);
+    }
+  };
+  return H.pipeline(H.flatMap(distributor));
+}
+
+function psiDistributor (type, pid) {
+  return H.pipeline(
+    tableDistributor(type, pid),
+    sectionDistributor(pid)
+  );
+}
+
 module.exports = {
   readTimeStamp : readTimeStamp,
   writeTimeStamp : writeTimeStamp,
@@ -184,7 +333,10 @@ module.exports = {
   tsDaysSinceEpoch : tsDaysSinceEpoch,
   sectionCollector : sectionCollector,
   tableCollector : tableCollector,
-  psiCollector : psiCollector
+  psiCollector : psiCollector,
+  tableDistributor : tableDistributor,
+  sectionDistributor : sectionDistributor,
+  psiDistributor : psiDistributor
 };
 
 // var testB = Buffer.from([0x00, 0xb0, 0x0d, 0xb3, 0xc8, 0xc1,

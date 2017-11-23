@@ -19,7 +19,25 @@ const H = require('highland');
 // const getRandomInt = require('./testUtil.js').getRandomInt;
 // const getRandomBoolean = require('./testUtil.js').getRandomBoolean;
 const fs = require('fs');
-const util = require('../src/util.js');
+// const util = require('../src/util.js');
+
+// const examplePat = {
+//   type: 'ProgramAssociationTable',
+//   pid: 0,
+//   tableID: 0,
+//   transportStreamID: 4100,
+//   versionNumber: 2,
+//   currentNextIndicator: 1,
+//   sectionCount: 1,
+//   table:
+//    { '0': 16,
+//      '4164': 4164,
+//      '4228': 4228,
+//      '4351': 4351,
+//      '4415': 4415,
+//      '4479': 4479,
+//      '4671': 4671 },
+//   networkID: 16 };
 
 /* function makePAT() {
   var pat = {
@@ -39,11 +57,11 @@ const util = require('../src/util.js');
   return pat;
 } */
 
-test('Check the packet collection of PAT packets', t => {
+/* test('Check the packet collection of PAT packets', t => {
   H(fs.createReadStream(__dirname + '/mux1-cp.ts'))
     .pipe(tesladon.bufferGroup(188))
     .pipe(tesladon.readTSPackets())
-    .pipe(tesladon.readPAT(true))
+    .pipe(tesladon.readPAT(false))
     // .filter(x => x.type === 'PSISection')
     .doto(H.log)
     .errors(t.fail)
@@ -51,3 +69,4 @@ test('Check the packet collection of PAT packets', t => {
       t.end();
     });
 });
+*/
