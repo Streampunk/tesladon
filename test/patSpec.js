@@ -14,13 +14,14 @@
 */
 
 const test = require('tape');
-// const tesladon = require('../index.js');
-// const H = require('highland');
-const getRandomInt = require('./testUtil.js').getRandomInt;
-const getRandomBoolean = require('./testUtil.js').getRandomBoolean;
+const tesladon = require('../index.js');
+const H = require('highland');
+// const getRandomInt = require('./testUtil.js').getRandomInt;
+// const getRandomBoolean = require('./testUtil.js').getRandomBoolean;
+const fs = require('fs');
+const util = require('../src/util.js');
 
-
-function makePAT() {
+/* function makePAT() {
   var pat = {
     type : 'ProgramAssocationTable',
     pid : 0,
@@ -36,10 +37,17 @@ function makePAT() {
     lastSectionNumber : 0
   };
   return pat;
-}
+} */
 
-test('PAT is written OK to TS packet', t => {
-  var p = makePAT();
-  t.ok(p);
-  t.end();
+test('Check the packet collection of PAT packets', t => {
+  H(fs.createReadStream(__dirname + '/mux1-cp.ts'))
+    .pipe(tesladon.bufferGroup(188))
+    .pipe(tesladon.readTSPackets())
+    .pipe(tesladon.readPAT(true))
+    // .filter(x => x.type === 'PSISection')
+    .doto(H.log)
+    .errors(t.fail)
+    .done(() => {
+      t.end();
+    });
 });

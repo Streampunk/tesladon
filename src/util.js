@@ -13,6 +13,8 @@
   limitations under the License.
 */
 
+const H = require('highland');
+
 function readTimeStamp (buffer, offset) {
   // console.log('>>>',((buffer.readUInt8(offset) & 0x0e) * 536870912) +
   //   ((buffer.readUInt16BE(offset + 1) & 0xfffe) * 16384) +
@@ -96,13 +98,93 @@ var crc = b => {
   return crc & 0xffffffff;
 };
 
+function sectionCollector(pid, filter = true) {
+  var section = null;
+  var collector = x => {
+    if (x.type === 'TSPacket' && x.pid === pid) {
+      var pointerFieldOffset = x.payload.readUInt8(0) + 1;
+      if (x.payloadUnitStartIndicator || section === null) { // start of new section
+        let tableHeader = x.payload.readUInt16BE(pointerFieldOffset + 1);
+        section = {
+          type: 'PSISection',
+          pid: pid,
+          pointerField: pointerFieldOffset - 1,
+          tableID: x.payload.readInt8(pointerFieldOffset),
+          sectionSyntaxIndicator: (tableHeader & 0x8000) >>> 15,
+          privateBit: (tableHeader & 0x4000) >>> 14,
+          length: tableHeader & 0x0fff,
+          pos: 0,
+          sectionNumber: x.payload.readUInt8(pointerFieldOffset + 6),
+          lastSectionNumber: x.payload.readUInt8(pointerFieldOffset + 7)
+        };
+        if (section.length > 1021) {
+          console.log(`Warning: Received section header for PID ${pid} with length ${section.length} exceeding maximum of 1021.`);
+          section.length = 1021;
+        }
+        section.payload = Buffer.alloc(section.length + 3);
+      }
+      section.pos += x.payload.copy(section.payload, section.pos, pointerFieldOffset);
+      if (section.pos >= section.length + 3) {
+        let result = section;
+        result.CRC = result.payload.readUInt32BE(result.payload.length - 4);
+        result.payload = result.payload.slice(0, -4); // Chop the CRC off the end
+        delete result.pos;
+        section = null;
+        return filter ? H([result]) : H([x, result]);
+      } else {
+        return filter ? H([]) : H([x]);
+      }
+    } else {
+      return H([x]);
+    }
+  };
+  return H.pipeline(H.flatMap(collector));
+}
+
+function tableCollector(pid, filter = true) {
+  var sections = null;
+  var collector = x => {
+    if (x.type === 'PSISection' && x.pid === pid) {
+      if (!sections) sections = {};
+      sections[x.sectionNumber] = x;
+      var gotAllSections = true;
+      for ( var y = 0 ; y <= x.lastSectionNumber ; y++ ) {
+        if (!sections[y]) { gotAllSections = false; break; }
+      }
+      if (gotAllSections) {
+        var result = {
+          type: 'PSISections',
+          pid: pid,
+          sections: Object.values(sections)
+        };
+        sections = null;
+        return filter ? H([result]) : H([x, result]);
+      } else {
+        return filter ? H([]) : H([x]);
+      }
+    } else {
+      return H([x]);
+    }
+  };
+  return H.pipeline(H.flatMap(collector));
+}
+
+function psiCollector(pid, filter = true) {
+  return H.pipeline(
+    sectionCollector(pid, filter),
+    tableCollector(pid, filter) );
+}
+
 module.exports = {
   readTimeStamp : readTimeStamp,
   writeTimeStamp : writeTimeStamp,
   crcMpeg : crc,
   tsTimeToPTPTime : tsTimeToPTPTime,
   ptpTimeToTsTime : ptpTimeToTsTime,
-  tsDaysSinceEpoch : tsDaysSinceEpoch
+  tsDaysSinceEpoch : tsDaysSinceEpoch,
+  sectionCollector : sectionCollector,
+  tableCollector : tableCollector,
+  psiCollector : psiCollector
 };
 
 // var testB = Buffer.from([0x00, 0xb0, 0x0d, 0xb3, 0xc8, 0xc1,

@@ -13,58 +13,39 @@
   limitations under the License.
 */
 
-// TODO Pat tables that extend across more than one packet and have more than
-//      one section.
+const H = require('highland');
+const psiCollector = require('./util.js').psiCollector;
 
-var H = require('highland');
-
-function readPAT(filter) {
-  var makePAT = (err, x, push, next) => {
-    if (err) {
-      push(err);
-      next();
-    } else if (x === H.nil) {
-      push(null, x);
-    } else {
-      if (x.type === 'TSPacket' && x.pid === 0) {
-        var patOffset = 1 + x.payload.readUInt8(0);
-        var tableHeader = x.payload.readUInt16BE(patOffset + 1);
-        var pat = {
-          type : 'ProgramAssocationTable',
-          pid : 0,
-          pointerField : patOffset - 1,
-          tableID : x.payload.readUInt8(patOffset),
-          sectionSyntaxHeader : (tableHeader & 0X8000) !== 0,
-          privateBit : (tableHeader & 0x4000) !== 0,
-          sectionLength : tableHeader & 0x0fff,
-          transportStreamIdentifier : x.payload.readUInt16BE(patOffset + 3),
-          versionNumber : x.payload.readUInt8(patOffset + 5) & 0x3c / 2 | 0,
-          currentNextIndicator : (x.payload.readUInt8(patOffset + 5) & 0x01) !== 0,
-          sectionNumber : x.payload.readUInt8(patOffset + 6),
-          lastSectionNumber : x.payload.readUInt8(patOffset + 7)
-        };
-        patOffset += 8;
-        var upperTableBound = patOffset + pat.sectionLength - 9;
-        while (patOffset < upperTableBound) {
-          var programNum = x.payload.readUInt16BE(patOffset);
-          var programMapPID = x.payload.readUInt16BE(patOffset + 2) & 0x1fff;
-          if (!pat.table) pat.table = {};
-          pat.table[programMapPID] = {
-            programNum : programNum,
-            programMapPID : programMapPID
-          };
-          patOffset += 4;
-        }
-        pat.CRC = x.payload.readUInt32BE(patOffset);
-        if (!filter) push(null, x);
-        push(null, pat);
-      } else {
-        push(null, x);
+function readPAT(filter = true) {
+  var makePAT = x => {
+    if (x.type === 'PSISections' && x.pid === 0) {
+      if (x.sections.length <= 0)
+        throw new Error('Cannot process a PAT section array with no sections!');
+      var pat = {
+        type: 'ProgramAssociationTable',
+        pid: 0,
+        tableID: x.sections[0].tableID,
+        transportStreamID: x.sections[0].payload.readUInt16BE(3),
+        versionNumber: (x.sections[0].payload.readInt8(5) & 0x3e) >> 1,
+        currentNextIndicator: x.sections[0].payload.readInt8(5) & 0x01,
+        sectionCount: x.sections[0].lastSectionNumber + 1,
+        table: {}
+      };
+      console.log('>>>', x.sections[0].payload.slice(0, 10));
+      var tableData = Buffer.concat(x.sections.map(s => s.payload.slice(8)));
+      for ( var p = 0 ; p < tableData.length; p += 4) {
+        pat.table[tableData.readUInt16BE(p)] =
+          tableData.readUInt16BE(p + 2) & 0x1fff;
       }
-      next();
+      if (pat.table[0]) pat.networkID = pat.table[0];
+      return filter ? H([pat]) : H([x, pat]);
+    } else {
+      return H([x]);
     }
   };
-  return H.pipeline(H.consume(makePAT));
+  return H.pipeline(
+    psiCollector(0, filter),
+    H.flatMap(makePAT) );
 }
 
 module.exports = readPAT;
