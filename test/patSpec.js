@@ -13,12 +13,12 @@
   limitations under the License.
 */
 
-const test = require('tape');
-const tesladon = require('../index.js');
-const H = require('highland');
+//const test = require('tape');
+//const tesladon = require('../index.js');
+//const H = require('highland');
 // const getRandomInt = require('./testUtil.js').getRandomInt;
 // const getRandomBoolean = require('./testUtil.js').getRandomBoolean;
-const fs = require('fs');
+//const fs = require('fs');
 // const util = require('../src/util.js');
 
 // const examplePat = {

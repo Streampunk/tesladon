@@ -25,6 +25,12 @@ function readTimeStamp (buffer, offset) {
 }
 
 function writeTimeStamp (ts, base, buffer, offset) {
+  if (typeof ts !== 'number') {
+    throw new TypeError(`Timestamp must be a number and provided value is ${typeof ts}.`);
+  }
+  if (ts < 0 || ts > 0x1ffffffff) {
+    throw new RangeError(`Timestamp value ${ts} is out of range 0 to 0x1ffffffff.`);
+  }
   buffer.writeUInt8((base & 0xf0) | ((ts / 536870912|0) & 0x0e) | 0x0001, offset);
   buffer.writeUInt16BE(((ts / 16384|0) & 0xfffe) | 0x01, offset + 1);
   buffer.writeUInt16BE(((ts * 2 | 0) & 0xfffe) | 0x01, offset + 3);
@@ -34,6 +40,9 @@ const tsDay = Math.pow(2, 33);
 const tsDaysMS = Math.pow(2, 33) / 90;
 
 function tsTimeToPTPTime (t) {
+  if (typeof t !== 'number') {
+    throw new TypeError(`Timestamp must be a number and provided value is ${typeof t}.`);
+  }
   var epochTSDays = (Date.now() / tsDaysMS) | 0;
   var ticksSinceEpoch = tsDay * epochTSDays + t;
   var secondsSinceEpoch = ticksSinceEpoch / 90000;
@@ -42,6 +51,9 @@ function tsTimeToPTPTime (t) {
 }
 
 function ptpTimeToTsTime (p) {
+  if (!Array.isArray(p) || p.length !== 2 || p.find(x => typeof x !== 'number')) {
+    throw new TypeError(`PTP timestamp must be an array of numbers length 2, not ${typeof p}.`);
+  }
   var baseTicksSinceEpoch = p[0] * 90000;
   var ticksInSecond = ((p[1] / 1000000000) * 90000 + 0.5 ) |0;
   var totalTicks = baseTicksSinceEpoch + ticksInSecond;
@@ -90,12 +102,15 @@ var crcTable = [
 ];
 
 var crc = b => {
+  if (!Buffer.isBuffer(b)) {
+    throw new TypeError(`MPEG-CRC calculations only work for buffers, not ${typeof b}.`);
+  }
   var crc = 0xffffffff;
   for (var i = 0; i < b.length; ++i) {
     var tableIndex = ((crc >>> 24) ^ b[i]) & 0xff;
-    crc = (crcTable[tableIndex] ^ (crc << 8)) & 0xffffffff;
+    crc = ((crcTable[tableIndex] ^ (crc << 8)) & 0xffffffff) >>> 0;
   }
-  return crc & 0xffffffff;
+  return (crc & 0xffffffff) >>> 0;
 };
 
 var tableIDName = {
@@ -115,7 +130,7 @@ for ( let x = 0x40 ; x < 0xff ; x++ )
   tableIDName[x] = `user_private_0x${x.toString(16)}`;
 
 var tableNameID = {};
-for ( let id in tableIDName ) tableNameID[tableIDName[id]] = id;
+for ( let id in tableIDName ) tableNameID[tableIDName[id]] = +id;
 
 function sectionCollector(pid, filter = true) {
   var section = null;
@@ -142,9 +157,10 @@ function sectionCollector(pid, filter = true) {
           section.lastSectionNumber = x.payload.readUInt8(pointerFieldOffset + 7);
           section.pos += 5;
         }
-        if (section.length > 1021) {
-          console.log(`Warning: Received section header for PID ${pid} with length ${section.length} exceeding maximum of 1021.`);
-          section.length = 1021;
+        if (section.length > (section.sectionSyntaxIndicator === 1) ? 1021 : 4093) {
+          console.log(`Warning: Received section header for PID ${pid} with length ${section.length}` +
+            ` exceeding maximum of ${(section.sectionSyntaxIndicator === 1) ? 1021 : 4093}.`);
+          section.length = (section.sectionSyntaxIndicator === 1) ? 1021 : 4093;
         }
         section.payload = Buffer.alloc(section.length - 5);
         section.pos += x.payload.copy(section.payload, 0, section.pos + pointerFieldOffset);
@@ -202,6 +218,27 @@ function psiCollector(pid, filter = true) {
     tableCollector(pid, filter) );
 }
 
+function makeSectionHeader (sec) {
+  var header = Buffer.alloc(sec.sectionSyntaxIndicator === 1 ? 8 : 3);
+  header.writeUInt8(tableNameID[sec.tableID], 0);
+  let tableHeader =
+    (sec.sectionSyntaxIndicator === 1 ? 0x8000 : 0) |
+    (sec.privateBit === 1 ? 0x4000 : 0) |
+    0x3000 | // reserved bits all on
+    sec.length & 0x0fff;
+  header.writeUInt16BE(tableHeader, 1);
+  if (sec.sectionSyntaxIndicator === 1) {
+    header.writeUInt16BE(sec.tableIDExtension, 3);
+    var versionByte = 0xc |
+      ((sec.versionNumber & 0x1f) << 1) |
+      (sec.currentNextIndicator & 0x1);
+    header.writeUInt8(versionByte, 5);
+    header.writeUInt8(sec.sectionNumber, 6);
+    header.writeUInt8(sec.lastSectionNumber, 7);
+  }
+  return header;
+}
+
 function tableDistributor (type, pid) {
   const typeName = type + 'Payload';
   var distributor = t => {
@@ -211,9 +248,9 @@ function tableDistributor (type, pid) {
         pid: pid,
         sections: []
       };
-      var pos = 0;
-      var secNo = 0;
-      while (pos < t.payload.length) {
+      var maxSize = t.tableID.startsWith('user_private') ? 4089 : 1017;
+      maxSize -= t.sectionSyntaxIndicator === 1 ? 5 : 0;
+      for ( var secNo = 0 ; secNo < t.payloads.length ; secNo++ ) {
         var sec = {
           type: 'PSISection',
           pid: pid,
@@ -227,17 +264,21 @@ function tableDistributor (type, pid) {
           sec.tableIDExtension = t.tableIDExtension;
           sec.versionNumber = t.versionNumber;
           sec.currentNextIndicator = t.currentNextIndicator;
-          sec.sectionNumber = secNo++;
+          sec.sectionNumber = secNo;
+          sec.lastSectionNumber = t.payloads.length - 1;
           sec.length += 5;
         }
-        sec.payload = t.payload.slice(pos, pos + 1017 - sec.length);
-        sec.length += sec.payload.length + 4; // Allow space for CRC value
-        pos += sec.payload.length;
+        sec.payload = t.payloads[secNo].slice(0, maxSize);
+        if (sec.payload.length < t.payloads[secNo].length) {
+          throw new Error(`Section payload data for pid ${pid} has length ` +
+            `${t.payloads[0].length} that exceeds limit of ${maxSize}.`);
+        }
+        sec.length += sec.payload.length + 4; // Allow space for CRC
+        sec.headerBytes = makeSectionHeader(sec);
+        sec.CRC = crc(Buffer.concat([sec.headerBytes.slice(3), sec.payload],
+          sec.sectionSyntaxIndicator === 1 ? sec.payload.length + 5 : sec.payload.length));
         psiSecs.sections.push(sec);
       }
-      psiSecs.sections.forEach(s => {
-        s.lastSectionNumber = psiSecs.sections.length - 1;
-      });
       return psiSecs;
     } else {
       return t;
@@ -252,6 +293,10 @@ function sectionDistributor (pid) {
       var tsps = [];
       var pos = 0;
       for ( var sec of s.sections ) {
+        var crcBytes = Buffer.allocUnsafe(4);
+        crcBytes.writeUInt32BE(sec.CRC, 0);
+        var secPayload = Buffer.concat([sec.headerBytes, sec.payload, crcBytes],
+          sec.headerBytes.length + sec.payload.length + 4);
         var tsp = {
           type: 'TSPacket',
           packetSync: 0x47,
@@ -267,30 +312,10 @@ function sectionDistributor (pid) {
         tsp.payload.writeUInt8(sec.pointerField, 0);
         for ( pos = 1 ; pos <= sec.pointerField ; pos++ )
           tsp.payload.writeInt8(0xff, pos);
-        tsp.payload.writeUInt8(tableNameID[sec.tableID], pos);
-        let tableHeader =
-          (sec.sectionSyntaxIndicator === 1 ? 0x8000 : 0) |
-          (sec.privateBit === 1 ? 0x4000 : 0) |
-          0x3000 | // reserved bits all on
-          sec.length & 0x03ff;
-        tsp.writeUInt16BE(tableHeader, pos + 1);
-        if (sec.sectionSyntaxIndicator === 1) {
-          tsp.payload.writeUInt16BE(sec.tableIDExtension, pos + 3);
-          var versionByte = 0xc |
-            ((sec.versionNumber & 0x1f) << 1) |
-            (sec.currentNextIndicator & 0x1);
-          tsp.payload.writeUInt8(versionByte, pos + 5);
-          tsp.payload.writeUInt8(sec.sectionNumber, pos + 6);
-          tsp.payload.writeUInt8(sec.lastSectionNumber, pos + 7);
-        }
-        sec.CRC = crc(Buffer.concat([
-          tsp.payload.slice(0, 8),
-          sec.payload.slice(0, -4) ], sec.playload.length + 4));
-        sec.payload.writeUInt32BE(sec.CRC, sec.payload.length - 4);
-        var posInSec = sec.payload.copy(tsp.payload, pos + 8, 0);
-        tsp.payload.fill(0xff, pos + 8 + posInSec);
+        var posInSec = secPayload.copy(tsp.payload, pos, 0);
+        tsp.payload.fill(0xff, pos + posInSec);
         tsps.push(tsp);
-        while (posInSec < sec.payload) {
+        while (posInSec < secPayload.length) {
           tsp = {
             type: 'TSPacket',
             packetSync: 0x47,
@@ -303,7 +328,7 @@ function sectionDistributor (pid) {
             continuityCounter: 0,
             payload: Buffer.allocUnsafe(184)
           };
-          let written = sec.payload.copy(tsp.payload, 0, posInSec);
+          let written = secPayload.copy(tsp.payload, 0, posInSec);
           posInSec += written;
           tsp.payload.fill(0xff, written);
           tsps.push(tsp);
@@ -336,7 +361,9 @@ module.exports = {
   psiCollector : psiCollector,
   tableDistributor : tableDistributor,
   sectionDistributor : sectionDistributor,
-  psiDistributor : psiDistributor
+  psiDistributor : psiDistributor,
+  tableNameID : tableNameID,
+  tableIDName : tableIDName
 };
 
 // var testB = Buffer.from([0x00, 0xb0, 0x0d, 0xb3, 0xc8, 0xc1,
