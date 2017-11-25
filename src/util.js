@@ -134,20 +134,22 @@ for ( let id in tableIDName ) tableNameID[tableIDName[id]] = +id;
 
 function sectionCollector(pid, filter = true) {
   var section = null;
+  var lengthDiff = 0;
   var collector = x => {
     if (x.type === 'TSPacket' && x.pid === pid) {
-      var pointerFieldOffset = x.payload.readUInt8(0) + 1;
       if (x.payloadUnitStartIndicator || section === null) { // start of new section
+        let pointerFieldOffset = x.payload.readUInt8(0) + 1;
         let tableHeader = x.payload.readUInt16BE(pointerFieldOffset + 1);
         section = {
           type: 'PSISection',
           pid: pid,
           pointerField: pointerFieldOffset - 1,
-          tableID: tableIDName[x.payload.readInt8(pointerFieldOffset)],
+          tableID: tableIDName[x.payload.readUInt8(pointerFieldOffset)],
           sectionSyntaxIndicator: (tableHeader & 0x8000) >>> 15,
           privateBit: (tableHeader & 0x4000) >>> 14,
           length: tableHeader & 0x0fff,
-          pos: 3
+          start: 3 + pointerFieldOffset,
+          pos: 0
         };
         if (section.sectionSyntaxIndicator === 1) {
           section.tableIDExtension = x.payload.readUInt16BE(pointerFieldOffset + 3);
@@ -155,24 +157,27 @@ function sectionCollector(pid, filter = true) {
           section.currentNextIndicator = x.payload.readInt8(pointerFieldOffset + 5) & 0x01;
           section.sectionNumber = x.payload.readUInt8(pointerFieldOffset + 6);
           section.lastSectionNumber = x.payload.readUInt8(pointerFieldOffset + 7);
-          section.pos += 5;
+          section.start += 5;
         }
-        if (section.length > (section.sectionSyntaxIndicator === 1) ? 1021 : 4093) {
+        if (section.length > (section.tableID.startsWith('user_private') ? 4093 : 1021)) {
           console.log(`Warning: Received section header for PID ${pid} with length ${section.length}` +
             ` exceeding maximum of ${(section.sectionSyntaxIndicator === 1) ? 1021 : 4093}.`);
           section.length = (section.sectionSyntaxIndicator === 1) ? 1021 : 4093;
         }
-        section.payload = Buffer.alloc(section.length - 5);
-        section.pos += x.payload.copy(section.payload, 0, section.pos + pointerFieldOffset);
+        lengthDiff = section.sectionSyntaxIndicator === 1 ? 5 : 0;
+        section.payload = Buffer.alloc(section.length - lengthDiff);
+        section.pos = x.payload.copy(section.payload, 0, section.start);
       } else {
-        section.pos += x.payload.copy(section.payload, 0, section.pos);
+        section.pos += x.payload.copy(section.payload, section.pos);
       }
-      if (section.pos >= section.length + 3) {
+      if ((section.pos + lengthDiff) >= section.length) {
         let result = section;
-        result.CRC = result.payload.readUInt32BE(result.payload.length - 4);
-        result.payload = result.payload.slice(0, -4); // Chop the CRC off the end
-        delete result.pos;
-        section = null;
+        if (section.sectionSyntaxIndicator === 1) { // CRC omitted for private section
+          result.CRC = result.payload.readUInt32BE(result.payload.length - 4);
+          result.payload = result.payload.slice(0, -4); // Chop the CRC off the end
+        }
+        delete result.pos; delete result.start;
+        section = null; lengthDiff = 0;
         return filter ? H([result]) : H([x, result]);
       } else {
         return filter ? H([]) : H([x]);
@@ -273,10 +278,12 @@ function tableDistributor (type, pid) {
           throw new Error(`Section payload data for pid ${pid} has length ` +
             `${t.payloads[0].length} that exceeds limit of ${maxSize}.`);
         }
-        sec.length += sec.payload.length + 4; // Allow space for CRC
+        sec.length += sec.payload.length + (t.sectionSyntaxIndicator === 1 ? 4 : 0); // Allow space for CRC if syntax indicated
         sec.headerBytes = makeSectionHeader(sec);
-        sec.CRC = crc(Buffer.concat([sec.headerBytes.slice(3), sec.payload],
-          sec.sectionSyntaxIndicator === 1 ? sec.payload.length + 5 : sec.payload.length));
+        if (t.sectionSyntaxIndicator === 1) {
+          sec.CRC = crc(Buffer.concat([sec.headerBytes.slice(3), sec.payload],
+            t.sectionSyntaxIndicator === 1 ? sec.payload.length + 5 : sec.payload.length));
+        }
         psiSecs.sections.push(sec);
       }
       return psiSecs;
@@ -293,10 +300,10 @@ function sectionDistributor (pid) {
       var tsps = [];
       var pos = 0;
       for ( var sec of s.sections ) {
-        var crcBytes = Buffer.allocUnsafe(4);
-        crcBytes.writeUInt32BE(sec.CRC, 0);
+        var crcBytes = Buffer.allocUnsafe(sec.sectionSyntaxIndicator === 1 ? 4 : 0);
+        if (crcBytes.length === 4) crcBytes.writeUInt32BE(sec.CRC, 0);
         var secPayload = Buffer.concat([sec.headerBytes, sec.payload, crcBytes],
-          sec.headerBytes.length + sec.payload.length + 4);
+          sec.headerBytes.length + sec.payload.length + crcBytes.length);
         var tsp = {
           type: 'TSPacket',
           packetSync: 0x47,
@@ -304,7 +311,7 @@ function sectionDistributor (pid) {
           payloadUnitStartIndicator: true,
           transportPriority: false,
           pid: pid,
-          scramblingControl: 1,
+          scramblingControl: 0,
           adaptationFieldControl: 1,
           continuityCounter: 0,
           payload: Buffer.allocUnsafe(184)
@@ -323,7 +330,7 @@ function sectionDistributor (pid) {
             payloadUnitStartIndicator: false,
             transportPriority: false,
             pid: pid,
-            scramblingControl: 1,
+            scramblingControl: 0,
             adaptationFieldControl: 1,
             continuityCounter: 0,
             payload: Buffer.allocUnsafe(184)
