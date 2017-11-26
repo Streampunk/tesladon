@@ -234,7 +234,7 @@ function makeSectionHeader (sec) {
   header.writeUInt16BE(tableHeader, 1);
   if (sec.sectionSyntaxIndicator === 1) {
     header.writeUInt16BE(sec.tableIDExtension, 3);
-    var versionByte = 0xc |
+    var versionByte = 0xc0 |
       ((sec.versionNumber & 0x1f) << 1) |
       (sec.currentNextIndicator & 0x1);
     header.writeUInt8(versionByte, 5);

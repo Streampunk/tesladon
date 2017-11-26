@@ -19,7 +19,7 @@ const getRandomInt = require('./testUtil.js').getRandomInt;
 const getRandomBoolean = require('./testUtil.js').getRandomBoolean;
 const H = require('highland');
 
-/* test('Timestamps roundtrip OK', t => {
+test('Timestamps roundtrip OK', t => {
   function checkStamp(stamp) {
     let b = Buffer.alloc(5);
     tsUtil.writeTimeStamp(stamp, 0, b, 0);
@@ -101,7 +101,7 @@ test('Check basic CRC values', t => {
     t.equal(crc, crcBasics[size - 1], `crc value 0x${crc.toString(16)} matches external calculation.`);
   }
   t.end();
-}); */
+});
 
 function makeTestPayload (length, pid = 42) {
   var tableID = getRandomBoolean() ? getRandomInt(0, 9) : getRandomInt(0x40, 0xfe);
@@ -131,50 +131,54 @@ function makeTestPayload (length, pid = 42) {
   return testPayload;
 }
 
-/* test('Distribute test payload into sections', t => {
-  var pid = getRandomInt(0, 0x1fff);
-  var tp = makeTestPayload(getRandomInt(0, 10000), pid);
-  H([tp])
-    .pipe(tsUtil.tableDistributor('Test', pid))
-    .doto(H.log)
-    .doto(x => {
-      t.equal(x.type, 'PSISections', 'object has expected type PSISections.');
-      t.equal(x.pid, pid, `object has the correct PID of ${pid}.`);
-      for ( let i in x.sections ) {
-        let s = x.sections[i];
-        t.equal(s.type, 'PSISection', `section ${i} has correct type PSISection.`);
-        t.equal(s.pid, pid, `section ${i} has correct pid ${pid}.`);
-        t.equal(s.pointerField, 0, `section ${i} has default pointer field of 0.`);
-        t.equal(s.tableID, tp.tableID, `section ${i} has matching table ID.`);
-        t.equal(s.sectionSyntaxIndicator, tp.sectionSyntaxIndicator,
-          `section ${i} has matching section syntax indicator.`);
-        t.equal(s.privateBit, tp.privateBit, `section ${i} has matching private bit.`);
-        if (s.sectionSyntaxIndicator === 1) {
-          t.equal(s.length, tp.payloads[i].length + 9, `section ${i} has expected length ${s.length}.`);
-          t.equal(s.tableIDExtension, tp.tableIDExtension, `section ${i} has expected table ID extension.`);
-          t.equal(s.versionNumber, tp.versionNumber, `section ${i} has expected version number.`);
-          t.equal(s.currentNextIndicator, tp.currentNextIndicator,
-            `section ${i} has expected current next indicator.`);
-          t.equal(s.sectionNumber, +i, `section ${i} has expected section number.`);
-          t.equal(s.lastSectionNumber, x.sections.length - 1,
-            `section ${i} has expected last section number.`);
-        } else {
-          t.equal(s.length, tp.payloads[i].length + 4, `section ${i} has expected length ${s.length}.`);
+for ( let z = 0 ; z < 10 ; z++ ) {
+  test('Distribute test payload into sections', t => {
+    var pid = getRandomInt(0, 0x1fff);
+    var tp = makeTestPayload(getRandomInt(0, 10000), pid);
+    H([tp])
+      .pipe(tsUtil.tableDistributor('Test', pid))
+      // .doto(H.log)
+      .doto(x => {
+        t.equal(x.type, 'PSISections', 'object has expected type PSISections.');
+        t.equal(x.pid, pid, `object has the correct PID of ${pid}.`);
+        for ( let i in x.sections ) {
+          let s = x.sections[i];
+          t.equal(s.type, 'PSISection', `section ${i} has correct type PSISection.`);
+          t.equal(s.pid, pid, `section ${i} has correct pid ${pid}.`);
+          t.equal(s.pointerField, 0, `section ${i} has default pointer field of 0.`);
+          t.equal(s.tableID, tp.tableID, `section ${i} has matching table ID.`);
+          t.equal(s.sectionSyntaxIndicator, tp.sectionSyntaxIndicator,
+            `section ${i} has matching section syntax indicator.`);
+          t.equal(s.privateBit, tp.privateBit, `section ${i} has matching private bit.`);
+          if (s.sectionSyntaxIndicator === 1) {
+            t.equal(s.length, tp.payloads[i].length + 9, `section ${i} has expected length ${s.length}.`);
+            t.equal(s.tableIDExtension, tp.tableIDExtension, `section ${i} has expected table ID extension.`);
+            t.equal(s.versionNumber, tp.versionNumber, `section ${i} has expected version number.`);
+            t.equal(s.currentNextIndicator, tp.currentNextIndicator,
+              `section ${i} has expected current next indicator.`);
+            t.equal(s.sectionNumber, +i, `section ${i} has expected section number.`);
+            t.equal(s.lastSectionNumber, x.sections.length - 1,
+              `section ${i} has expected last section number.`);
+          } else { // No CRC when section syntax omitted
+            t.equal(s.length, tp.payloads[i].length, `section ${i} has expected length ${s.length}.`);
+          }
+          if (+i === 0) {
+            t.equal(s.payload[0], 0, `first bytes of section ${i} is 0 as expected.`);
+          } else {
+            t.equal(s.payload[0], (x.sections[+i - 1].payload.slice(-1)[0] + 1) & 0xff,
+              `section ${i} payload has bytes are contiguous with previous sections.`);
+          }
+          if (s.CRC) {
+            t.ok(s.CRC >= 0, `section ${i} CRC value is non-negative.`);
+          }
         }
-        if (+i === 0) {
-          t.equal(s.payload[0], 0, `first bytes of section ${i} is 0 as expected.`);
-        } else {
-          t.equal(s.payload[0], (x.sections[+i - 1].payload.slice(-1)[0] + 1) & 0xff,
-            `section ${i} payload has bytes are contiguous with previous sections.`);
-        }
-        t.ok(s.CRC >= 0, `section ${i} CRC value is non-negative.`);
-      }
-    })
-    .errors(t.fail)
-    .done(() => {
-      t.end();
-    });
-}); */
+      })
+      .errors(t.fail)
+      .done(() => {
+        t.end();
+      });
+  });
+}
 
 function sectionPayload (p) {
   if (p.payloadUnitStartIndicator) {
@@ -190,96 +194,107 @@ function sectionPayload (p) {
   }
 }
 
-/* test('Convert sections into TS packets', t => {
-  var pid = getRandomInt(0, 0x1fff);
-  var tp = makeTestPayload(getRandomInt(0, 10000), pid);
-  var sections = null;
-  H([tp])
-    .pipe(tsUtil.tableDistributor('Test', pid))
-    .doto(secs => { sections = secs; })
-    .pipe(tsUtil.sectionDistributor(pid))
-    .errors(t.fail)
-    .toArray(x => {
-      // console.log(x);
-      t.equal(x[0].payloadUnitStartIndicator, true,
-        'first TS packet always the start of a section.');
-      t.ok(x.every(y => y.pid === pid), 'every packet has the correct PID.');
-      t.ok(x.every(y => y.transportErrorIndicator === false),
-        'every packet has no transport errors flagged.');
-      t.ok(x.every(y => y.transportPriority === false),
-        'every packet has no transport priority set.');
-      t.ok(x.every(y => y.scramblingControl === 0), 'every packet has no scrambling.');
-      t.ok(x.every(y => y.adaptationFieldControl === 1),
-        'every packet has payload and no adaptation field.');
-      t.ok(x.every(y => y.payload.length === 184), 'every packet has a filled payload.');
-      t.ok(x.every(y => y.payloadUnitStartIndicator ? y.payload[0] === 0 : true),
-        'sections starts have zero pointer field.');
-      t.ok(x.every(y => y.payloadUnitStartIndicator ? (y.payload[2] & 0x30) === 0x30 : true),
-        'reserved length bits are set to 1.');
-      var secLength = 0;
-      var secCount = 0;
-      for ( let i in x ) {
-        var p = x[i];
-        if (p.payloadUnitStartIndicator) {
-          if (i === '0') {
-            t.equal(sectionPayload(p)[0], 0,
-              'first element of first section payload entry is zero.');
+for ( let z = 0 ; z < 100 ; z++ ) {
+  test('Convert sections into TS packets', t => {
+    var pid = getRandomInt(0, 0x1fff);
+    var tp = makeTestPayload(getRandomInt(0, 10000), pid);
+    var sections = null;
+    H([tp])
+      .pipe(tsUtil.tableDistributor('Test', pid))
+      .doto(secs => { sections = secs; })
+      .pipe(tsUtil.sectionDistributor(pid))
+      .errors(t.fail)
+      .toArray(x => {
+        // console.log(x);
+        t.equal(x[0].payloadUnitStartIndicator, true,
+          'first TS packet always the start of a section.');
+        t.ok(x.every(y => y.pid === pid), 'every packet has the correct PID.');
+        t.ok(x.every(y => y.transportErrorIndicator === false),
+          'every packet has no transport errors flagged.');
+        t.ok(x.every(y => y.transportPriority === false),
+          'every packet has no transport priority set.');
+        t.ok(x.every(y => y.scramblingControl === 0), 'every packet has no scrambling.');
+        t.ok(x.every(y => y.adaptationFieldControl === 1),
+          'every packet has payload and no adaptation field.');
+        t.ok(x.every(y => y.payload.length === 184), 'every packet has a filled payload.');
+        t.ok(x.every(y => y.payloadUnitStartIndicator ? y.payload[0] === 0 : true),
+          'sections starts have zero pointer field.');
+        t.ok(x.every(y => y.payloadUnitStartIndicator ? (y.payload[2] & 0x30) === 0x30 : true),
+          'reserved length bits are set to 1.');
+        var secLength = 0;
+        var secCount = 0;
+        for ( let i in x ) {
+          var p = x[i];
+          if (p.payloadUnitStartIndicator) {
+            if (i === '0') {
+              t.equal(sectionPayload(p)[0], 0,
+                'first element of first section payload entry is zero.');
+            } else {
+              let lastTwo = sectionPayload(x[+i - 1]).slice(-2);
+              var sliceOffset = sections.sections[secCount++].length - secLength -
+                (sectionSyntaxIndicator === 1 ? 5 : 0);
+              if (sliceOffset > 1) { // CRC not up against it
+                console.log('>>>', lastTwo);
+                if (!((lastTwo[1] === 0xff) ||
+                    (((lastTwo[0] + 1) & 0xff) === lastTwo[1]))) {
+                  console.log('FUCK!');
+                }
+                t.ok(
+                  (lastTwo[1] === 0xff) ||
+                  (((lastTwo[0] + 1) & 0xff) === lastTwo[1]),
+                  `section ${secCount} ends with 0xff padding or is filled with sequence.`);
+                t.ok(x[+i - 1].payload.slice(sliceOffset).every(y => y === 0xff),
+                  'every value beyond end of section is padded with 0xff.');
+              }
+            }
+            secLength = sectionPayload(p).length;
+            var pointerFieldOffset = p.payload.readUInt8(0) + 1;
+            var sectionSyntaxIndicator = (p.payload[pointerFieldOffset + 1] & 0x80) >>> 7;
           } else {
-            let lastTwo = sectionPayload(x[+i - 1]).slice(-2);
-            t.ok(
-              (lastTwo[1] === 0xff) ||
-              ((lastTwo[0] + 1) & 0xff === lastTwo[1]),
-              `section ${secCount} ends with 0xff padding or is filled with sequence.`);
-            // console.log('>>>', sections.sections.map(x => x.length));
-            // console.log(sections.sections[secCount].length, secLength);
-            var sliceOffset = sections.sections[secCount++].length - secLength -
-              (sectionSyntaxIndicator === 1 ? 5 : 0);
-            t.ok(x[+i - 1].payload.slice(sliceOffset).every(y => y === 0xff),
-              'every value beyond end of section is padded with 0xff.');
+            secLength += sectionPayload(p).length;
+            if (secLength - sections.sections[secCount].length < 175) { // CRC overlaps packets
+              t.equal(
+                sectionPayload(p)[0],
+                (sectionPayload(x[+i - 1]).slice(-1)[0] + 1) & 0xff,
+                `section payloads are incrementing into TS packet ${i}.`);
+            }
           }
-          secLength = sectionPayload(p).length;
-          var pointerFieldOffset = p.payload.readUInt8(0) + 1;
-          var sectionSyntaxIndicator = (p.payload[pointerFieldOffset + 1] & 0x80) >>> 7;
-        } else {
-          secLength += sectionPayload(p).length;
-          t.equal(
-            sectionPayload(p)[0],
-            (sectionPayload(x[+i - 1]).slice(-1)[0] + 1) & 0xff,
-            `section payloads are incrementing into TS packet ${i}.`);
         }
-      }
-      t.end();
-    });
-}); */
-
-test('Roundtrip table to and from payloads', t => {
-  var pid = getRandomInt(0, 0x1fff);
-  var tp = makeTestPayload(getRandomInt(0, 10000), pid);
-  var sections = null;
-  H([tp])
-    .pipe(tsUtil.tableDistributor('Test', pid))
-    .doto(secs => { sections = secs; })
-    .pipe(tsUtil.sectionDistributor(pid))
-    // .doto(H.log)
-    .pipe(tsUtil.sectionCollector(pid))
-    // .doto(H.log)
-    .pipe(tsUtil.tableCollector(pid))
-    .errors(t.fail)
-    .toArray(x => {
-      sections.sections = sections.sections.map(s => {
-        delete s.headerBytes;
-        return s;
+        t.end();
       });
-      for ( var i = 0 ; i < sections.sections.length ; i++ ) {
-        console.log('IN>>>', sections.sections[i]);
-        if (x[0].sectionSyntaxIndicator === 1) {
-          console.log('OUT>>', x[0].sections[i]);
-          t.deepEqual(sections.sections[i], x[0].sections[i]);
-        } else {
-          console.log('OUT>>', x[i].sections[0]);
-          t.deepEqual(sections.sections[i], x[i].sections[0]);
+  });
+}
+
+for ( let z = 0 ; z < 10 ; z++ ) {
+  test(`Roundtrip table ${z} to and from payloads`, t => {
+    var pid = getRandomInt(0, 0x1fff);
+    var tp = makeTestPayload(getRandomInt(0, 10000), pid);
+    var sections = null;
+    H([tp])
+      .pipe(tsUtil.tableDistributor('Test', pid))
+      .doto(secs => { sections = secs; })
+      .pipe(tsUtil.sectionDistributor(pid))
+      // .doto(H.log)
+      .pipe(tsUtil.sectionCollector(pid))
+      // .doto(H.log)
+      .pipe(tsUtil.tableCollector(pid))
+      .errors(t.fail)
+      .toArray(x => {
+        sections.sections = sections.sections.map(s => {
+          delete s.headerBytes;
+          return s;
+        });
+        for ( var i = 0 ; i < sections.sections.length ; i++ ) {
+          // console.log('IN>>>', sections.sections[i]);
+          if (x[0].sections[0].sectionSyntaxIndicator === 1) {
+            // console.log('OUT>>', x[0].sections[i]);
+            t.deepEqual(sections.sections[i], x[0].sections[i]);
+          } else {
+            // console.log('OUT>>', x[i].sections[0]);
+            t.deepEqual(sections.sections[i], x[i].sections[0]);
+          }
         }
-      }
-      t.end();
-    });
-});
+        t.end();
+      });
+  });
+}
