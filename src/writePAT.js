@@ -14,9 +14,44 @@
 */
 
 var H = require('highland');
-var crc = require('./util.js').crcMpeg;
+var util = require('./util.js');
 
 function writePAT() {
+  var patToSections = x => {
+    if (x.type === 'ProgramAssocationTable') {
+      var sections = {
+        type: 'PATPayload',
+        pid: 0,
+        tableID: x.tableID,
+        sectionSyntaxHeader: 1,
+        privateBit: 0,
+        tableIDExtension: x.transportStreamID,
+        versionNumber: x.versionNumber,
+        currentNextIndicator: x.currentNextIndicator,
+        payloads: []
+      };
+      var itemNo = 0;
+      var currentPayload = null;
+      if (x.networkID) {
+        x.table[0] = x.networkID;
+      }
+      for ( let i in x.table ) {
+        if (itemNo % 254 === 0) {
+          currentPayload = new Buffer(4 * 254);
+          sections.payloads.push(currentPayload);
+        }
+        currentPayload.writeUInt16BE(i, (itemNo % 254) * 4);
+        currentPayload.writeUInt16BE(x[i] | 0xe000, (itemNo++ % 254) * 4 + 2);
+      }
+    } else {
+      return x;
+    }
+  };
+  return H.pipeline(
+    H.map(patToSections),
+    util.psiDistributor(0));
+}
+/* function writePAT() {
   var contCounter = 0;
   var patToPacket = (err, x, push, next) => {
     if (err) {
@@ -79,7 +114,7 @@ function writePAT() {
     }
   };
   return H.pipeline(H.consume(patToPacket));
-}
+} */
 
 module.exports = writePAT;
 // 00 00 b0 0d b3 c8 c1 00 00 00 01 e1 00

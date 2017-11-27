@@ -25,12 +25,9 @@ function readPAT(filter = true) {
         type: 'ProgramAssociationTable',
         pid: 0,
         tableID: x.sections[0].tableID,
-        // sectionSyntaxIndicator: 1, These need to be written in PATPayload
-        // privateBit: 0,
         transportStreamID: x.sections[0].tableIDExtension,
         versionNumber: x.sections[0].versionNumber,
         currentNextIndicator: x.sections[0].currentNextIndicator,
-        sectionCount: x.sections[0].lastSectionNumber + 1,
         table: {}
       };
       var tableData = Buffer.concat(x.sections.map(s => s.payload));

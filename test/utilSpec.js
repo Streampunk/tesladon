@@ -131,7 +131,7 @@ function makeTestPayload (length, pid = 42) {
   return testPayload;
 }
 
-for ( let z = 0 ; z < 10 ; z++ ) {
+for ( let z = 0 ; z < 100 ; z++ ) {
   test('Distribute test payload into sections', t => {
     var pid = getRandomInt(0, 0x1fff);
     var tp = makeTestPayload(getRandomInt(0, 10000), pid);
@@ -165,8 +165,10 @@ for ( let z = 0 ; z < 10 ; z++ ) {
           if (+i === 0) {
             t.equal(s.payload[0], 0, `first bytes of section ${i} is 0 as expected.`);
           } else {
-            t.equal(s.payload[0], (x.sections[+i - 1].payload.slice(-1)[0] + 1) & 0xff,
-              `section ${i} payload has bytes are contiguous with previous sections.`);
+            if (s.payload.length > 0 && x.sections[+i - 1].payload.length > 0) {
+              t.equal(s.payload[0], (x.sections[+i - 1].payload.slice(-1)[0] + 1) & 0xff,
+                `section ${i} payload has bytes are contiguous with previous sections.`);
+            }
           }
           if (s.CRC) {
             t.ok(s.CRC >= 0, `section ${i} CRC value is non-negative.`);
@@ -205,7 +207,7 @@ for ( let z = 0 ; z < 100 ; z++ ) {
       .pipe(tsUtil.sectionDistributor(pid))
       .errors(t.fail)
       .toArray(x => {
-        // console.log(x);
+        if (x.length === 0) { return t.end(); } // payload length is zero - happens
         t.equal(x[0].payloadUnitStartIndicator, true,
           'first TS packet always the start of a section.');
         t.ok(x.every(y => y.pid === pid), 'every packet has the correct PID.');
@@ -227,18 +229,22 @@ for ( let z = 0 ; z < 100 ; z++ ) {
           var p = x[i];
           if (p.payloadUnitStartIndicator) {
             if (i === '0') {
-              t.equal(sectionPayload(p)[0], 0,
-                'first element of first section payload entry is zero.');
+              if (sectionPayload(p)[0] === 0xff) {
+                t.ok(sectionPayload(p).every(z => z === 0xff),
+                  'for payload length 0, no section syntax, every element of payload is 0xff.');
+              } else if (sectionPayload(p)[4] === 0xff) { // empty section, 4 bytes of CRC with syntax header
+                t.ok(sectionPayload(p).slice(4).every(z => z === 0xff),
+                  'for payload length 0, with section syntax, every element of payload is 0xff after CRC.');
+              } else {
+                t.equal(sectionPayload(p)[0], 0,
+                  'first element of first section payload entry is zero.');
+              }
             } else {
               let lastTwo = sectionPayload(x[+i - 1]).slice(-2);
               var sliceOffset = sections.sections[secCount++].length - secLength -
                 (sectionSyntaxIndicator === 1 ? 5 : 0);
               if (sliceOffset > 1) { // CRC not up against it
-                console.log('>>>', lastTwo);
-                if (!((lastTwo[1] === 0xff) ||
-                    (((lastTwo[0] + 1) & 0xff) === lastTwo[1]))) {
-                  console.log('FUCK!');
-                }
+                // console.log('>>>', lastTwo);
                 t.ok(
                   (lastTwo[1] === 0xff) ||
                   (((lastTwo[0] + 1) & 0xff) === lastTwo[1]),
@@ -265,7 +271,7 @@ for ( let z = 0 ; z < 100 ; z++ ) {
   });
 }
 
-for ( let z = 0 ; z < 10 ; z++ ) {
+for ( let z = 0 ; z < 100 ; z++ ) {
   test(`Roundtrip table ${z} to and from payloads`, t => {
     var pid = getRandomInt(0, 0x1fff);
     var tp = makeTestPayload(getRandomInt(0, 10000), pid);
