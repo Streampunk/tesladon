@@ -13,95 +13,97 @@
   limitations under the License.
 */
 
-var H = require('highland');
-var readDescriptor = require('./readDescriptor.js');
+const H = require('highland');
+const readDescriptor = require('./readDescriptor.js');
+const util = require('./util.js');
 
-function readPMTs(filter) {
-  var patCache = {};
-  var pmtCache = {};
-  var makePMTs = (err, x, push, next) => {
+function readPMTs (filter = true) {
+  var pmtStreams = {};
+  
+  var setupStreams = (err, x, push, next) => {
     if (err) {
       push(err);
       next();
     } else if (x === H.nil) {
-      push(null, x);
+      push (null, x);
     } else {
       if (x.type === 'ProgramAssocationTable') {
-        Object.keys(x.table).forEach((p) => {
-          patCache[p] = x.table[p];
-        });
-      } else if (x.type === 'TSPacket' && patCache[x.pid]) {
-        var pmt = null;
-        if (x.payloadUnitStartIndicator === true) {
-          let pmtOffset = 1 + x.payload.readUInt8(0);
-          var tableHeader = x.payload.readUInt16BE(pmtOffset + 1);
-          pmt = {
-            type : 'ProgramMapTable',
-            pid : x.pid,
-            pointerField : pmtOffset - 1,
-            tableID : x.payload.readUInt8(pmtOffset),
-            sectionSyntaxHeader : (tableHeader & 0X8000) !== 0,
-            privateBit : (tableHeader & 0x4000) !== 0,
-            sectionLength : tableHeader & 0x3ff,
-            programNum : x.payload.readUInt16BE(pmtOffset + 3),
-            versionNumber : x.payload.readUInt8(pmtOffset + 5) & 0x3c / 2 | 0,
-            currentNextIndicator : (x.payload.readUInt8(pmtOffset + 5) & 0x01) !== 0,
-            sectionNumber : x.payload.readUInt8(pmtOffset + 6),
-            lastSectionNumber : x.payload.readUInt8(pmtOffset + 7),
-            pcrPid: x.payload.readUInt16BE(pmtOffset + 8) & 0x1fff,
-            programInfoLength : x.payload.readUInt16BE(pmtOffset + 10) & 0x3ff
-          };
-          pmtCache[x.pid] = pmt;
-          pmt.payload = x.payload;
-        } else {
-          pmt = pmtCache[x.pid];
-          pmt.payload = Buffer.concat([pmt.payload, x.payload]);
-        }
-        if (pmt.payload.length >= (pmt.sectionLength + pmt.pointerField + 4)) {
-          pmt.payload = pmt.payload.slice(0, pmt.sectionLength + pmt.pointerField + 4);
-          let pmtOffset = pmt.pointerField + 13;
-          pmt.programInfo = [];
-          var remaining =
-            x.payload.slice(pmtOffset, pmtOffset + pmt.programInfoLength);
-          // console.log('>>>', remaining.length, pmtOffset, pmt.programInfoLength);
-          while (remaining.length >= 2) {
-            let nextDescriptor = readDescriptor(remaining);
-            console.log(nextDescriptor);
-            pmt.programInfo.push(nextDescriptor.result);
-            remaining = nextDescriptor.remaining;
-          }
-          pmtOffset += pmt.programInfoLength;
-          while (pmtOffset < pmt.sectionLength - 4) {
-            var streamType = x.payload.readUInt8(pmtOffset);
-            var elementaryPid = x.payload.readUInt16BE(pmtOffset + 1) & 0x1fff;
-            var esInfoLength = x.payload.readUInt16BE(pmtOffset + 3) & 0x3ff;
-            if (!pmt.esStreamInfo) pmt.esStreamInfo = {};
-            pmt.esStreamInfo[elementaryPid] = {
-              streamType : streamType,
-              elementaryPid : elementaryPid,
-              esInfoLength : esInfoLength,
-              esInfo : []
-            };
-            pmtOffset += 5;
-            remaining = x.payload.slice(pmtOffset, pmtOffset + esInfoLength);
-            while (remaining.length >= 2) {
-              let nextDescriptor = readDescriptor(remaining);
-              pmt.esStreamInfo[elementaryPid].esInfo.push(nextDescriptor.result);
-              remaining = nextDescriptor.remaining;
-            }
-            pmtOffset += esInfoLength;
-          }
-          pmt.CRC = x.payload.readUInt32BE(pmtOffset);
-          if (!filter) push(null, x);
-          push(null, pmt);
-        }
+        Object.values(x.table).filter(pid => // add filters for known PMTs
+          pmtStreams[pid] === undefined)
+          .forEach(pid => {
+            pmtStreams[pid] = H()
+              .through(util.psiCollector(pid))
+              .map(makePMT)
+              .error(e => { push(e); })
+              .each(pmt => {
+                push(null, pmt);
+              });
+          });
+        next();
       } else {
-        push(null, x);
+        if (x.type === 'TSPacket' && pmtStreams[x.pid]) {
+          pmtStreams[x.pid].write(x);
+          if (!filter) push(null, x);
+        } else {
+          push(null, x);
+        }
+        next();
       }
-      next();
+
     }
   };
-  return H.pipeline(H.consume(makePMTs));
+
+  var makePMT = x => {
+    var pmt = {
+      type : 'ProgramMapTable',
+      pid : x.pid,
+      tableID : x.sections[0].tableID,
+      programNumber : x.sections[0].tableIDExtension,
+      versionNumber : x.sections[0].versionNumber,
+      currentNextIndicator : x.sections[0].currentNextIndicator,
+      pcrPid: x.sections[0].payload.readUInt16BE(0) & 0x1fff,
+      programInfo: [],
+      programElements: {}
+    };
+    pmt.promgramInfo = x.sections.map(s => {
+      let programInfoLength = s.payload.readUInt16BE(2) & 0x03ff;
+      let remaining = s.payload.slice(4, programInfoLength + 4);
+      let progDescriptors = [];
+      while (remaining.lenth > 2) {
+        let nextDescriptor = readDescriptor(remaining);
+        progDescriptors.push(nextDescriptor.result);
+        remaining = nextDescriptor.remaining;
+      }
+      return progDescriptors;
+    });
+    pmt.programInfo = Array.prototype.concat(...pmt.programInfo);
+    var programInfoOffsets =
+      x.sections.map(s => ({
+        offset: (s.payload.readUInt16BE(2) & 0x03ff) + 4,
+        section: s }) );
+    for ( let item of programInfoOffsets ) {
+      let pos = item.offset;
+      while ( pos < item.section.length ) {
+        let esStreamInfo = {
+          type: 'ElementaryStreamInfo',
+          streamType: util.streamTypeIDName(item.section.payload.readUInt8(pos)),
+          elementaryPID: item.section.payload.readUInt16BE(pos + 1) & 0x1fff,
+          esInfo: []
+        };
+        let esInfoLength = item.section.payload.readUInt16BE(pos + 3) & 0x3ff;
+        pos += 5;
+        let remaining = item.section.payload.slice(pos, pos + esInfoLength);
+        while (remaining.length > 2) {
+          let nextDescriptor = readDescriptor(remaining);
+          esStreamInfo.esInfo.push(nextDescriptor.result);
+          remaining = nextDescriptor.remaining;
+        }
+        pmt.programElements[esStreamInfo.elementaryPID] = esStreamInfo;
+      }
+    }
+    return pmt;
+  };
+  return H.pipeline(H.consume(setupStreams));
 }
 
 module.exports = readPMTs;

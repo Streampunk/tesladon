@@ -132,11 +132,60 @@ for ( let x = 0x40 ; x < 0xff ; x++ )
 var tableNameID = {};
 for ( let id in tableIDName ) tableNameID[tableIDName[id]] = +id;
 
+var streamTypeIDName = {
+  '00': 'ITU-T | ISO/IEC Reserved',
+  '01': 'ISO/IEC 11172-2 Video',
+  '02': 'ITU-T Rec. H.262 | ISO/IEC 13818-2 Video or ISO/IEC 11172-2 constrained parameter video stream',
+  '03': 'ISO/IEC 11172-3 Audio',
+  '04': 'ISO/IEC 13818-3 Audio',
+  '05': 'ITU-T Rec. H.222.0 | ISO/IEC 13818-1 private_sections',
+  '06': 'ITU-T Rec. H.222.0 | ISO/IEC 13818-1 PES packets containing private data',
+  '07': 'ISO/IEC 13522 MHEG',
+  '08': 'ITU-T Rec. H.222.0 | ISO/IEC 13818-1 Annex A DSM-CC',
+  '09': 'ITU-T Rec. H.222.1',
+  '0A': 'ISO/IEC 13818-6 type A',
+  '0B': 'ISO/IEC 13818-6 type B',
+  '0C': 'ISO/IEC 13818-6 type C',
+  '0D': 'ISO/IEC 13818-6 type D',
+  '0E': 'ITU-T Rec. H.222.0 | ISO/IEC 13818-1 auxiliary',
+  '0F': 'ISO/IEC 13818-7 Audio with ADTS transport syntax',
+  '10': 'ISO/IEC 14496-2 Visual',
+  '11': 'ISO/IEC 14496-3 Audio with the LATM transport syntax as defined in ISO/IEC 14496-3',
+  '12': 'ISO/IEC 14496-1 SL-packetized stream or FlexMux stream carried in PES packets',
+  '13': 'ISO/IEC 14496-1 SL-packetized stream or FlexMux stream carried in ISO/IEC 14496_sections',
+  '14': 'ISO/IEC 13818-6 Synchronized Download Protocol',
+  '15': 'Metadata carried in PES packets',
+  '16': 'Metadata carried in metadata_sections',
+  '17': 'Metadata carried in ISO/IEC 13818-6 Data Carousel',
+  '18': 'Metadata carried in ISO/IEC 13818-6 Object Carousel',
+  '19': 'Metadata carried in ISO/IEC 13818-6 Synchronized Download Protocol',
+  '1A': 'IPMP stream (defined in ISO/IEC 13818-11, MPEG-2 IPMP)',
+  '1B': 'AVC video stream as defined in ITU-T Rec. H.264 | ISO/IEC 14496-10 Video',
+  '7F': 'IPMP stream'
+};
+
+for ( let x = 0x1c ; x <= 0x7e ; x++ )
+  streamTypeIDName[x] = `ITU-T Rec. H.222.0 | ISO/IEC 13818-1 Reserved 0x${x.toString(16)}`;
+for ( let x = 0x80 ; x <= 0xff ; x++ )
+  streamTypeIDName[x] = `User Private 0x${x.toString(16)}`;
+
+var streamTypeNameID = {};
+for ( let id in streamTypeIDName )
+  streamTypeNameID[streamTypeIDName[id]] = id;
+
 function sectionCollector(pid, filter = true) {
   var section = null;
   var lengthDiff = 0;
+  var continuityCheck = null;
   var collector = x => {
     if (x.type === 'TSPacket' && x.pid === pid) {
+      if (continuityCheck === null) {
+        continuityCheck = x.continuityCounter;
+      } else if (x.continuityCounter !== ++continuityCheck % 16) {
+        console.log(`Warning: Continuity check fail for pid ${pid}, expected ${continuityCheck} and got ${x.continuityCounter}.`);
+        continuityCheck = x.continuityCounter;
+      }
+
       if (x.payloadUnitStartIndicator || section === null) { // start of new section
         let pointerFieldOffset = x.payload.readUInt8(0) + 1;
         let tableHeader = x.payload.readUInt16BE(pointerFieldOffset + 1);
@@ -295,6 +344,7 @@ function tableDistributor (type, pid) {
 }
 
 function sectionDistributor (pid) {
+  var continuityCounter = 0;
   var distributor = s => {
     if (s.type === 'PSISections' && s.pid === pid) {
       var tsps = [];
@@ -313,7 +363,7 @@ function sectionDistributor (pid) {
           pid: pid,
           scramblingControl: 0,
           adaptationFieldControl: 1,
-          continuityCounter: 0,
+          continuityCounter: continuityCounter++ % 16,
           payload: Buffer.allocUnsafe(184)
         };
         tsp.payload.writeUInt8(sec.pointerField, 0);
@@ -332,7 +382,7 @@ function sectionDistributor (pid) {
             pid: pid,
             scramblingControl: 0,
             adaptationFieldControl: 1,
-            continuityCounter: 0,
+            continuityCounter: continuityCounter++ % 16,
             payload: Buffer.allocUnsafe(184)
           };
           let written = secPayload.copy(tsp.payload, 0, posInSec);
@@ -370,7 +420,9 @@ module.exports = {
   sectionDistributor : sectionDistributor,
   psiDistributor : psiDistributor,
   tableNameID : tableNameID,
-  tableIDName : tableIDName
+  tableIDName : tableIDName,
+  streamTypeIDName : streamTypeIDName,
+  streamTypeNameID : streamTypeNameID
 };
 
 // var testB = Buffer.from([0x00, 0xb0, 0x0d, 0xb3, 0xc8, 0xc1,
