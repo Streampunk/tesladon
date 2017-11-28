@@ -13,60 +13,129 @@
   limitations under the License.
 */
 
-//const test = require('tape');
-//const tesladon = require('../index.js');
-//const H = require('highland');
-// const getRandomInt = require('./testUtil.js').getRandomInt;
-// const getRandomBoolean = require('./testUtil.js').getRandomBoolean;
-//const fs = require('fs');
-// const util = require('../src/util.js');
+const test = require('tape');
+const tesladon = require('../index.js');
+const H = require('highland');
+const getRandomInt = require('./testUtil.js').getRandomInt;
+const getRandomBoolean = require('./testUtil.js').getRandomBoolean;
+const assert = require('assert');
 
-// const examplePat = {
-//   type: 'ProgramAssociationTable',
-//   pid: 0,
-//   tableID: 0,
-//   transportStreamID: 4100,
-//   versionNumber: 2,
-//   currentNextIndicator: 1,
-//   sectionCount: 1,
-//   table:
-//    { '0': 16,
-//      '4164': 4164,
-//      '4228': 4228,
-//      '4351': 4351,
-//      '4415': 4415,
-//      '4479': 4479,
-//      '4671': 4671 },
-//   networkID: 16 };
+const examplePAT = {
+  type: 'ProgramAssociationTable',
+  pid: 0,
+  tableID: 'program_association_section',
+  transportStreamID: 4100,
+  versionNumber: 2,
+  currentNextIndicator: 1,
+  table:
+   { '0': 16,
+     '4164': 4164,
+     '4228': 4228,
+     '4351': 4351,
+     '4415': 4415,
+     '4479': 4479,
+     '4671': 4671 },
+  networkID: 16 };
 
-/* function makePAT() {
+const testPacket = {
+  type: 'TSPacket',
+  packetSync: 0x47,
+  pid: 0,
+  transportErrorIndicator: false,
+  payloadUnitStartIndicator: true,
+  transportPriority: false,
+  adaptationFieldControl: 1,
+  scramblingControl: 0,
+  continuityCounter: 0,
+  payload: Buffer.from([
+    0x00, 0x00, 0xb0, 0x0d, 0xb3, 0xc8, 0xc1,
+    0x00, 0x00, 0x00, 0x01, 0xe1, 0x00,
+    0x58, 0x13, 0xbf, 0x6a])
+};
+
+function makePAT() {
   var pat = {
-    type : 'ProgramAssocationTable',
+    type : 'ProgramAssociationTable',
     pid : 0,
-    pointerField : 0,
-    tableID : 0,
-    sectionSyntaxHeader : 1,
-    privateBit : 0,
-    sectionLength : getRandomInt(0, 0x3fd),
-    transportStreamIdentifier : getRandomInt(0, 0xffff),
+    tableID : 'program_association_section',
+    transportStreamID : getRandomInt(0, 0xffff),
     versionNumber : getRandomInt(0, 0x1f),
-    currentNextIndicator : getRandomBoolean(),
-    sectionNumber : 0,
-    lastSectionNumber : 0
+    currentNextIndicator : getRandomBoolean() ? 0 : 1,
+    networkID : 42,
+    table: {}
   };
+  var entries = getRandomInt(0, 1018);
+  var nextProgramNo = getRandomInt(1, 0xffff);
+  var nextPID = getRandomInt(0x0010, 0x1ffe);
+  var pids = { };
+  for ( let x = 0 ; x < entries ; x++) {
+    while (pat.table[nextProgramNo] || pids[nextPID]) {
+      nextProgramNo = getRandomInt(1, 0xffff);
+      nextPID = getRandomInt(0x0010, 0x1ffe);
+    }
+    pat.table[nextProgramNo] = nextPID;
+    pids[nextPID] = true;
+  }
   return pat;
-} */
+}
 
-/* test('Check the packet collection of PAT packets', t => {
-  H(fs.createReadStream(__dirname + '/mux1-cp.ts'))
-    .pipe(tesladon.bufferGroup(188))
-    .pipe(tesladon.readTSPackets())
-    .pipe(tesladon.readPAT(false))
-    // .filter(x => x.type === 'PSISection')
-    .doto(H.log)
+test('Roundtrip example PAT', t => {
+  H([examplePAT])
+    .through(tesladon.writePAT())
+    .doto(x => {
+      t.equal(x.type, 'TSPacket', 'makes a TS packet in the middle.');
+      t.equal(x.payloadUnitStartIndicator, true,
+        'packet is marked as a payload start.');
+      t.equal(x.pid, 0, 'packet has PAT reserved PID number of 0.');
+    })
+    .through(tesladon.readPAT())
+    .doto(x => {
+      t.deepEqual(x, examplePAT, 'roundtrip PAT equals input PAT.');
+    })
     .errors(t.fail)
-    .done(() => {
-      t.end();
-    });
+    .done(() => { t.end(); });
 });
-*/
+
+for ( var z = 0 ; z < 100 ; z++ ) {
+  test(`Roundtrip random PAT ${z}`, t => {
+    var randomPAT = makePAT();
+    randomPAT.table[0] = randomPAT.networkID;
+    H([randomPAT])
+      //.doto(H.log)
+      .through(tesladon.writePAT())
+      .doto(x => {
+        // H.log(x);
+        t.equal(x.type, 'TSPacket', 'makes a TS packet in the middle.');
+        t.equal(x.pid, 0, 'packet has PAT reserved PID number of 0.');
+      })
+      .through(tesladon.readPAT())
+      .doto(x => {
+        try {
+          assert.deepEqual(x, randomPAT);
+          t.deepEqual(x, randomPAT, 'roundtrip PAT equals input PAT.');
+        } catch (e) {
+          t.fail('Elements do not match.');
+        }
+      })
+      .errors(t.fail)
+      .done(() => { t.end(); });
+  });
+}
+
+test('From test TS packet to PAT', t => {
+  H([testPacket])
+    .doto(H.log)
+    .through(tesladon.readPAT())
+    .errors(t.fail)
+    .each(p => {
+      t.deepEqual(p, {
+        type: 'ProgramAssociationTable',
+        pid: 0,
+        tableID: 'program_association_section',
+        transportStreamID: 46024,
+        versionNumber: 0,
+        currentNextIndicator: 1,
+        table: { '1': 256 } }, 'creates the expected PAT table.');
+    })
+    .done(() => { t.end(); });
+});

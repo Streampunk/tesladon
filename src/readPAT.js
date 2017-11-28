@@ -32,8 +32,8 @@ function readPAT(filter = true) {
       };
       var tableData = Buffer.concat(x.sections.map(s => s.payload));
       for ( var p = 0 ; p < tableData.length; p += 4) {
-        pat.table[tableData.readUInt16BE(p)] =
-          tableData.readUInt16BE(p + 2) & 0x1fff;
+        pat.table[tableData.readUInt16BE(p)] = // program number
+          tableData.readUInt16BE(p + 2) & 0x1fff; // program map PID
       }
       if (pat.table[0]) pat.networkID = pat.table[0];
       return filter ? H([pat]) : H([x, pat]);
