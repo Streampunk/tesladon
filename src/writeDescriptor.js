@@ -13,6 +13,8 @@
   limitations under the License.
 */
 
+const util = require('./util.js');
+
 // TODO Write all descriptor types.
 
 module.exports = (d, b, o) => {
@@ -25,7 +27,7 @@ module.exports = (d, b, o) => {
     return s - o;
   }
   switch (d.type) {
-  case 'VideoStreamDescritpor':
+  case 'VideoStreamDescriptor':
     b.writeUInt8(2, o++);
     b.writeUInt8(d.mpeg1OnlyFlag ? 3 : 1, o++);
     fields.push((d.multipleFrameRateFlag ? 0x80 : 0x00) |
@@ -37,13 +39,13 @@ module.exports = (d, b, o) => {
     if (d.mpeg1OnlyFlag === true) {
       b.writeUInt8(d.profileAndLevelIndication, o++);
       b.writeUInt8(((d.chromaFormat & 0x03) << 6) |
-          (b.frameRateExtensionFlag ? 0x20 : 0x00) | 0x1f, o++);
+          (d.frameRateExtensionFlag ? 0x20 : 0x00) | 0x1f, o++);
     }
     break;
   case 'AudioStreamDescriptor':
     b.writeUInt8(3, o++);
     b.writeUInt8(1, o++);
-    fields.push((d.freeFormatFlag ? 0x08 : 0x00) |
+    fields.push((d.freeFormatFlag ? 0x80 : 0x00) |
         (d.ID ? 0x40 : 0x00) |
         ((d.layer & 0x03) << 4) |
         (d.variableRateAudioIndicator ? 0x08 : 0x00) | 0x07);
@@ -51,10 +53,10 @@ module.exports = (d, b, o) => {
     break;
   case 'ISO639LanguageDescriptor':
     b.writeUInt8(10, o++);
-    b.writeUInt8(d.descriptorLength, o++);
+    b.writeUInt8(d.languages.length * 4, o++);
     d.languages.forEach(l => {
       o += Buffer.from(l.iso639LanguageCode, 'utf8').copy(b, o);
-      b.writeUInt8(l.audioType, o++);
+      b.writeUInt8(util.audioTypeNameID[l.audioType], o++);
     });
     break;
   case 'MaximumBitrateDescriptor':
@@ -66,10 +68,17 @@ module.exports = (d, b, o) => {
   case 'IBPDescriptor':
     b.writeUInt8(18, o++);
     b.writeUInt8(2, o++);
-    b.writeUInt16BE((d.closedGopFlag ? 0x80 : 0x00) |
-        (d.identicalGopFlag ? 0x40 : 0x00) |
+    b.writeUInt16BE((d.closedGopFlag ? 0x8000 : 0x0000) |
+        (d.identicalGopFlag ? 0x4000 : 0x0000) |
         (d.maxGopLength & 0x3fff), o);
     o += 2;
+    break;
+  case 'DSMCCCarouselIdentifierDescriptor':
+    b.writeUInt8(19, o++);
+    b.writeUInt8(4 + d.privateData.length, o++);
+    b.writeUInt32BE(d.carouselID, o);
+    d.privateData.copy(b, o + 4);
+    o += 4 + d.privateData.length;
     break;
   case 'MPEG4VideoDescriptor':
     b.writeUInt8(27, o++);
@@ -84,16 +93,14 @@ module.exports = (d, b, o) => {
   case 'AVCVideoDescriptor':
     b.writeUInt8(40, o++);
     b.writeUInt8(4, o++);
-    b.writeUInt8(d.profileIDC. o++);
-    fields.push((d.constraintFlag0 ? 0x80 : 0x00) |
+    b.writeUInt8(d.profileIDC, o++);
+    b.writeUInt8((d.constraintFlag0 ? 0x80 : 0x00) |
         (d.constraintFlag1 ? 0x40 : 0x00) |
         (d.constraintFlag2 ? 0x20 : 0x00) |
-        (d.avcCompatibleFlag & 0x1f));
-    b.writeUInt8(fields[0], o++);
+        (d.avcCompatibleFlag & 0x1f), o++);
     b.writeUInt8(d.levelIDC, o++);
-    fields.push((d.avcStillPresent ? 0x80 : 0x00) |
-        (d.avc24HourPictureFlag ? 0x40 : 0x00) | 0x3f);
-    b.writeUInt8(fields[1], o++);
+    b.writeUInt8((d.avcStillPresent ? 0x80 : 0x00) |
+        (d.avc24HourPictureFlag ? 0x40 : 0x00) | 0x3f, o++);
     break;
   case 'MPEG2AACAudioDescriptor':
     b.writeUInt8(43, o++);
@@ -101,6 +108,34 @@ module.exports = (d, b, o) => {
     b.writeUInt8(d.mpeg2AACProfile, o++);
     b.writeUInt8(d.mpeg2AACChannelConfiguration, o++);
     b.writeUInt8(d.mpeg2AACAdditionalInformation, o++);
+    break;
+  case 'DVBStreamIdentifierDescriptor':
+    b.writeUInt8(82, o++);
+    b.writeUInt8(1, o++);
+    b.writeUInt8(d.componentTag, o++);
+    break;
+  case 'DVBSubtitlingDescriptor':
+    b.writeUInt8(89, o++);
+    b.writeUInt8(d.languages.length * 8, o++);
+    for ( let l of d.languages ) {
+      Buffer.from(l.iso639LanguageCode, 'utf8').copy(b, o);
+      b.writeUInt8(l.subtitlingType, o + 3);
+      b.writeUInt16BE(l.compositionPageID, o + 4);
+      b.writeUInt16BE(l.ancillaryPageID, o + 6);
+      o += 8;
+    }
+    break;
+  case 'DVBDataBroadcastIDDescriptor':
+    b.writeUInt8(102, o++);
+    b.writeUInt8(2 + d.idSelectorByte.length, o++);
+    b.writeUInt16BE(d.dataBroadcastID, o);
+    d.idSelectorByte.copy(b, o + 2);
+    o += 2 + d.idSelectorByte.length;
+    break;
+  case 'UnknownDescriptor':
+    b.writeUInt8(d.descriptorTag, o++);
+    b.writeUInt8(d.value.length, o++);
+    o += d.value.copy(b, o);
     break;
   default:
     break;

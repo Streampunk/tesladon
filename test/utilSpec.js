@@ -75,6 +75,14 @@ test('Table name ID mapping', t => {
   t.end();
 });
 
+test('Stream type name ID mapping', t => {
+  for ( let i = 0 ; i < 256 ; i++ ) {
+    t.equal(tsUtil.streamTypeNameID[tsUtil.streamTypeIDName[i]], i,
+      `for ${i}, stream type ID to name roundtrips via ${tsUtil.streamTypeIDName[i]}.`);
+  }
+  t.end();
+});
+
 test('MPEG CRC calculations are as expected', t => {
   let b = Buffer.from([0x00, 0xb0, 0x0d, 0xb3, 0xc8, 0xc1, 0x00, 0x00,
     0x00, 0x01, 0xe1, 0x00]);

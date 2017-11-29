@@ -13,17 +13,20 @@
   limitations under the License.
 */
 
+const util = require('./util.js');
+
 // TODO Read all descriptor types.
 
 module.exports = b => {
   var length = b.readUInt8(1);
   var result = null;
   var fields = [];
+  var pos = 0;
   switch (b.readUInt8(0)) {
   case 2: // Video stream descriptor
     fields.push(b.readUInt8(2));
     result = {
-      type : 'VideoStreamDescritpor',
+      type : 'VideoStreamDescriptor',
       descriptorTag : 2,
       descriptorLength : length,
       multipleFrameRateFlag : (fields[0] & 0x80) !== 0,
@@ -71,12 +74,11 @@ module.exports = b => {
       descriptorTag : 10,
       descriptorLength : length,
     };
-    var pos = 0;
     result.languages = [];
     while (pos < length) {
       result.languages.push({
         iso639LanguageCode : b.slice(pos + 2, pos + 5).toString('utf8'),
-        audioType : b.readUInt8(pos + 5)
+        audioType : util.audioTypeIDName[b.readUInt8(pos + 5)]
       });
       pos += 4;
     }
@@ -116,6 +118,15 @@ module.exports = b => {
       closedGopFlag : (fields[0] & 0x8000) !== 0,
       identicalGopFlag : (fields[0] & 0x4000) !== 0,
       maxGopLength : fields[0] & 0x3fff
+    };
+    break;
+  case 19:
+    result = {
+      type: 'DSMCCCarouselIdentifierDescriptor',
+      descriptorTag : 19,
+      descriptorLength : length,
+      carouselID : b.readUInt32BE(2),
+      privateData: b.slice(6, 2 + length)
     };
     break;
   case 27: // MPEG-4 video descriptor
@@ -202,6 +213,40 @@ module.exports = b => {
     break;
   case 44: // FlexMuxTiming descriptor
     result = backstop(b, 'FlexMuxTimingDescriptorRaw');
+    break;
+  case 82: // DVB - stream identifier descriptor
+    result = {
+      type : 'DVBStreamIdentifierDescriptor',
+      descriptorTag: 82,
+      descriptorLength : length,
+      componentTag: b.readUInt8(2)
+    };
+    break;
+  case 89: // DVB - subtitling descriptorTag
+    result = {
+      type: 'DVBSubtitlingDescriptor',
+      descriptorTag: 89,
+      descriptorLength: length,
+      languages: []
+    };
+    while (pos < length) {
+      result.languages.push({
+        iso639LanguageCode : b.slice(pos + 2, pos + 5).toString('utf8'),
+        subtitlingType : b.readUInt8(pos + 5),
+        compositionPageID : b.readUInt16BE(pos + 6),
+        ancillaryPageID : b.readUInt16BE(pos + 8)
+      });
+      pos += 8;
+    }
+    break;
+  case 102:
+    result = {
+      type: 'DVBDataBroadcastIDDescriptor',
+      descriptorTag: 102,
+      descriptorLength: length,
+      dataBroadcastID: b.readUInt16BE(2),
+      idSelectorByte: b.slice(4, 2 + length)
+    };
     break;
   default:
     result = backstop(b, 'UnknownDescriptor');

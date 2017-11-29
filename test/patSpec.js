@@ -18,7 +18,6 @@ const tesladon = require('../index.js');
 const H = require('highland');
 const getRandomInt = require('./testUtil.js').getRandomInt;
 const getRandomBoolean = require('./testUtil.js').getRandomBoolean;
-const assert = require('assert');
 
 const examplePAT = {
   type: 'ProgramAssociationTable',
@@ -110,12 +109,7 @@ for ( var z = 0 ; z < 100 ; z++ ) {
       })
       .through(tesladon.readPAT())
       .doto(x => {
-        try {
-          assert.deepEqual(x, randomPAT);
-          t.deepEqual(x, randomPAT, 'roundtrip PAT equals input PAT.');
-        } catch (e) {
-          t.fail('Elements do not match.');
-        }
+        t.deepEqual(x, randomPAT, 'roundtrip PAT equals input PAT.');
       })
       .errors(t.fail)
       .done(() => { t.end(); });
