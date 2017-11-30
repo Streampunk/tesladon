@@ -309,13 +309,15 @@ function makeSectionHeader (sec) {
   return header;
 }
 
-function tableDistributor (type, pid) {
+const ALL_PIDS = -1;
+
+function tableDistributor (type, pid = ALL_PIDS) {
   const typeName = type + 'Payload';
   var distributor = t => {
-    if (t.type === typeName && t.pid === pid) {
+    if (t.type === typeName && (t.pid === pid || pid === ALL_PIDS)) {
       var psiSecs = {
         type: 'PSISections',
-        pid: pid,
+        pid: t.pid,
         sections: []
       };
       var maxSize = t.tableID.startsWith('user_private') ? 4089 : 1017;
@@ -323,7 +325,7 @@ function tableDistributor (type, pid) {
       for ( var secNo = 0 ; secNo < t.payloads.length ; secNo++ ) {
         var sec = {
           type: 'PSISection',
-          pid: pid,
+          pid: t.pid,
           pointerField: 0,
           tableID: t.tableID,
           sectionSyntaxIndicator: t.sectionSyntaxIndicator,
@@ -340,7 +342,7 @@ function tableDistributor (type, pid) {
         }
         sec.payload = t.payloads[secNo].slice(0, maxSize);
         if (sec.payload.length < t.payloads[secNo].length) {
-          throw new Error(`Section payload data for pid ${pid} has length ` +
+          throw new Error(`Section payload data for pid ${t.pid} has length ` +
             `${t.payloads[0].length} that exceeds limit of ${maxSize}.`);
         }
         sec.length += sec.payload.length + (t.sectionSyntaxIndicator === 1 ? 4 : 0); // Allow space for CRC if syntax indicated
@@ -359,10 +361,10 @@ function tableDistributor (type, pid) {
   return H.pipeline(H.map(distributor));
 }
 
-function sectionDistributor (pid) {
+function sectionDistributor (pid = ALL_PIDS) {
   var continuityCounter = 0;
   var distributor = s => {
-    if (s.type === 'PSISections' && s.pid === pid) {
+    if (s.type === 'PSISections' && (s.pid === pid || pid === ALL_PIDS)) {
       var tsps = [];
       var pos = 0;
       for ( var sec of s.sections ) {
@@ -376,7 +378,7 @@ function sectionDistributor (pid) {
           transportErrorIndicator: false,
           payloadUnitStartIndicator: true,
           transportPriority: false,
-          pid: pid,
+          pid: s.pid,
           scramblingControl: 0,
           adaptationFieldControl: 1,
           continuityCounter: continuityCounter++ % 16,
@@ -395,7 +397,7 @@ function sectionDistributor (pid) {
             transportErrorIndicator: false,
             payloadUnitStartIndicator: false,
             transportPriority: false,
-            pid: pid,
+            pid: s.pid,
             scramblingControl: 0,
             adaptationFieldControl: 1,
             continuityCounter: continuityCounter++ % 16,
@@ -415,7 +417,7 @@ function sectionDistributor (pid) {
   return H.pipeline(H.flatMap(distributor));
 }
 
-function psiDistributor (type, pid) {
+function psiDistributor (type, pid = ALL_PIDS) {
   return H.pipeline(
     tableDistributor(type, pid),
     sectionDistributor(pid)
@@ -440,7 +442,8 @@ module.exports = {
   streamTypeIDName : streamTypeIDName,
   streamTypeNameID : streamTypeNameID,
   audioTypeIDName : audioTypeIDName,
-  audioTypeNameID : audioTypeNameID
+  audioTypeNameID : audioTypeNameID,
+  ALL_PIDS : ALL_PIDS
 };
 
 // var testB = Buffer.from([0x00, 0xb0, 0x0d, 0xb3, 0xc8, 0xc1,

@@ -13,92 +13,81 @@
   limitations under the License.
 */
 
-var H = require('highland');
-var crc = require('./util.js').crc;
-var writeDescriptor = require('./writeDescriptor.js');
+const H = require('highland');
+const writeDescriptor = require('./writeDescriptor.js');
+const util = require('./util.js');
 
 function writePMTs() {
-  var continuityCounters = {};
-  var pmtToPacket = (err, x, push, next) => {
-    if (err) {
-      push(err);
-      next();
-    } else if (x === H.nil) {
-      push(null, x);
-    } else {
-      if (x.type && x.type === 'ProgramMapTable') {
-        var counter = continuityCounters[x.pid];
-        if (typeof counter === 'undefined') counter = 0;
-        var tsp = {
-          type : 'TSPacket',
-          packetSync : 0x47,
-          transportErrorIndicator : false,
-          payloadUnitStartIndicator : true,
-          transportPriority : false,
-          pid : x.pid,
-          scramblingControl : 0,
-          adaptationFieldControl : 1,
-          continuityCounter : counter++,
-          payload : Buffer.allocUnsafe(184)
-        };
-        var tspp = tsp.payload;
-        tspp.writeUInt8(x.pointerField, 0);
-        var pmtOffset = 1;
-        while (pmtOffset <= x.pointerField) {
-          tspp.writeUInt8(0xff, pmtOffset++);
+  var pmtToSections = x => {
+    if (x.type && x.type === 'ProgramMapTable') {
+      var sections = {
+        type: 'ProgramMapTablePayload',
+        pid: x.pid,
+        tableID: x.tableID,
+        sectionSyntaxIndicator: 1,
+        privateBit: 0,
+        tableIDExtension: x.programNumber,
+        versionNumber: x.versionNumber,
+        currentNextIndicator: x.currentNextIndicator,
+        payloads: []
+      };
+      var currentPayload = Buffer.alloc(1012);
+      currentPayload.writeUInt16BE(0xe000 | x.pcrPid, 0);
+      var pos = 4;
+      for ( let pi of x.programInfo ) {
+        repeat: try {
+          pos += writeDescriptor(pi, currentPayload, pos);
+        } catch (e) {
+          if (e.name === 'RangeError') {
+            currentPayload.writeUInt16BE(0xf000 | ((pos - 4) & 0x03ff), 2);
+            sections.payloads.push(currentPayload.slice(0, pos));
+            currentPayload = Buffer.alloc(1012);
+            currentPayload.writeUInt16BE(0xe000 | x.pcrPid, 0);
+            pos = 4;
+            break repeat;
+          } else {
+            console.error(e);
+          }
         }
-        tspp.writeUInt8(x.tableID, pmtOffset++);
-        var tableHeader = (x.sectionSyntaxHeader ? 0x8000 : 0) | 0x3000 |
-          (x.sectionLength & 0x03ff);
-        tspp.writeUInt16BE(tableHeader, pmtOffset);
-        pmtOffset += 2;
-        tspp.writeUInt16BE(x.programNum, pmtOffset);
-        pmtOffset += 2;
-        var verCurNext = 0xc0 | ((x.versionNumber & 0x1f) << 1) |
-          (x.currentNextIndicator ? 1 : 0);
-        tspp.writeUInt8(verCurNext, pmtOffset++);
-        tspp.writeUInt8(x.sectionNumber, pmtOffset++);
-        tspp.writeUInt8(x.lastSectionNumber, pmtOffset++);
-        tspp.writeUInt16BE(0xe0 | (x.pcrPid & 0x1fff), pmtOffset);
-        pmtOffset += 2;
-        tspp.writeUInt16BE(0xf0 | (x.programInfoLength & 0x3ff), pmtOffset);
-        pmtOffset += 2;
+      } // end program info for-loop
+      currentPayload.writeUInt16BE(0xf000 | ((pos - 4) & 0x03ff), 2);
 
-        x.programInfo.forEach(p => {
-          var written = writeDescriptor(p, tspp, pmtOffset);
-          pmtOffset += written;
-        });
-        if (x.esStreamInfo) {
-          Object.keys(x.esStreamInfo).forEach(k => {
-            var e = x.esStreamInfo[k];
-            tspp.writeUInt8(e.streamType, pmtOffset++);
-            tspp.writeUInt16BE(0xe000 | (e.elementaryPid & 0x1ff), pmtOffset);
-            pmtOffset += 2;
-            tspp.writeUInt16BE(0xf000 | (e.esInfoLength & 0x3ff), pmtOffset);
-            pmtOffset += 2;
-            e.esInfo.forEach(i => {
-              var written = writeDescriptor(i, tspp, pmtOffset);
-              pmtOffset += written;
-            });
-          });
+      for ( let el in x.programElements ) {
+        var esStreamInfo = x.programElements[el];
+        againAgain: try {
+          currentPayload.writeUInt8(
+            util.streamTypeNameID[esStreamInfo.streamType], pos);
+          currentPayload.writeUInt16BE(
+            0xe000 | (esStreamInfo.elementaryPID & 0x1fff), pos + 1);
+          let localPos = pos + 5;
+          for ( let esi of esStreamInfo.esInfo ) {
+            localPos += writeDescriptor(esi, currentPayload, localPos);
+          }
+          currentPayload.writeUInt16BE(
+            0xf000 | ((localPos - (pos + 5)) & 0x03ff), pos + 3);
+          pos = localPos;
+        } catch (e) {
+          if (e.name === 'RangeError') {
+            sections.payloads.push(currentPayload.slice(0, pos));
+            currentPayload = Buffer.alloc(1012);
+            currentPayload.writeUInt16BE(0xe000 | x.pcrPid, 0);
+            currentPayload.writeUInt16BE(0xe000, 2); // No more program info
+            pos = 4;
+            break againAgain;
+          } else {
+            console.error(e);
+          }
         }
-        var crc32 = crc(tspp.slice(x.pointerField + 1, pmtOffset));
-        if (crc32 !== x.CRC)
-          console.error('Calculated CRC and existing CRC differ.');
-        tspp.writeUInt32BE(crc32, pmtOffset);
-        pmtOffset += 4;
-        for ( var y = pmtOffset ; y < tspp.length ; y++ ) {
-          tspp.writeUInt8(0xff, y);
-        }
-        continuityCounters[x.pid] = counter % 16;
-        push(null, tsp);
-      } else {
-        push(null, x);
-      }
-      next();
+      } // end progrma elements for-loop
+      sections.payloads.push(currentPayload.slice(0, pos));
+      return sections;
+    } else {
+      return x;
     }
   };
-  return H.pipeline(H.consume(pmtToPacket));
+  return H.pipeline(
+    H.map(pmtToSections),
+    util.psiDistributor('ProgramMapTable'));
 }
 
 module.exports = writePMTs;
