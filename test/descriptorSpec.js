@@ -141,11 +141,13 @@ testDescriptor({
     getRandomInt(0, 0xff), getRandomInt(0, 0xff), getRandomInt(0, 0xff)])
 }, 102, 8);
 
-var unknownValue = {
-  type: 'UnknownDescriptor',
-  descriptorTag: getRandomInt(0, 0xff),
-  value: Buffer.alloc(getRandomInt(0, 254), getRandomInt(0, 0xff))
-};
+for ( var x = 0 ; x < 20 ; x++ ) {
+  var unknownValue = {
+    type: 'UnknownDescriptor',
+    descriptorTag: getRandomInt(103, 0xff), // avoid defined descriptors ... for npw
+    value: Buffer.alloc(getRandomInt(0, 254), getRandomInt(0, 0xff))
+  };
 
-testDescriptor(unknownValue,
-  unknownValue.descriptorTag, unknownValue.value.length + 2);
+  testDescriptor(unknownValue,
+    unknownValue.descriptorTag, unknownValue.value.length + 2);
+}

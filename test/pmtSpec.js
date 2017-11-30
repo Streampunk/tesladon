@@ -13,6 +13,8 @@
   limitations under the License.
 */
 
+// TODO make a random PMT and test with lots of random values.
+
 const test = require('tape');
 const tesladon = require('../index.js');
 const H = require('highland');
@@ -67,7 +69,7 @@ const testPMT = {
         descriptorLength: 4,
         languages: [{
           iso639LanguageCode: 'eng',
-          audioType: 0
+          audioType: 'Undefined'
         }]
       }, {
         type: 'DVBStreamIdentifierDescriptor',
@@ -91,7 +93,7 @@ const testPMT = {
         descriptorLength: 4,
         languages: [{
           iso639LanguageCode: 'eng',
-          audioType: 3
+          audioType: 'Visual impaired commentary'
         } ]
       }]
     },
@@ -186,20 +188,6 @@ const testPMT = {
   }
 };
 
-/* test('Read some PMTs from a file', t => {
-  H(fs.createReadStream(__dirname + '/mux1-cp.ts'))
-    .through(tesladon.bufferGroup(188))
-    .through(tesladon.readTSPackets())
-    .through(tesladon.readPAT())
-    .through(tesladon.readPMTs())
-    .filter(x => x.type === 'ProgramMapTable')
-    .errors(t.fail)
-    .each(x => { H.log(JSON.stringify(x, null, 2)); })
-    .done(() => {
-      t.end();
-    });
-}); */
-
 test('TS packets from PMT', t => {
   H([testPMT])
     .through(tesladon.writePMTs())
@@ -220,6 +208,19 @@ test('TS packets from PMT', t => {
 });
 
 test('Roundtrip PMT value', t => {
-  t.ok(examplePAT !== undefined);
-  t.end();
+  H([examplePAT, testPMT])
+    .through(tesladon.writePMTs())
+    // .doto(H.log)
+    .through(tesladon.readPMTs())
+    .filter(x => x.type === 'ProgramMapTable')
+    .errors(t.fail)
+    .each(pmt => {
+      for ( let elpid in pmt.programElements ) {
+        var el = pmt.programElements[elpid];
+        t.deepEqual(el, testPMT.programElements[elpid],
+          `elementary stream info matches for ${elpid}.`);
+      }
+      t.deepEqual(pmt, testPMT, 'PMT values roundtrip OK.');
+    })
+    .done(() => { t.end(); });
 });
