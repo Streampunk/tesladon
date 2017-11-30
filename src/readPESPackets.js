@@ -13,79 +13,74 @@
   limitations under the License.
 */
 
-var H = require('highland');
-var readTimeStamp = require('./util.js').readTimeStamp;
+const H = require('highland');
+const readTimeStamp = require('./util.js').readTimeStamp;
+const util = require('./util.js');
 
-function readPESPackets(filter) {
+// TODO PES packet extension fields, .e.g. ESCR
+
+function readPESPackets(filter = true, warning = false) {
   var pesBuilder = {};
-  var pesMaker = (err, x, push, next) => {
-    if (err) {
-      push(err);
-      next();
-    } else if (x === H.nil) {
-      push(null, x);
-    } else {
-      if (x.type === 'TSPacket') {
-        if (x.payloadUnitStartIndicator === true) {
-          if (x.payload.readUIntBE(0, 3) !== 1) {
-            console.error('Expected PES packet at payload start indicator.');
-            push(null, x);
-            next();
-            return;
-          }
-          var pesOptional = x.payload.readUInt16BE(6);
-          var pesPacket = {
-            type : 'PESPacket',
-            pid : x.pid,
-            streamID : x.payload.readUInt8(3),
-            pesPacketLength : x.payload.readUInt16BE(4),
-            scramblingControl : (pesOptional & 0x3000) >>> 12,
-            priority : (pesOptional & 0x0800) !== 0,
-            dataAlignmentIndicator : (pesOptional & 0x0400) !== 0,
-            copyright : (pesOptional & 0x0200) !== 0,
-            originalOrCopy : (pesOptional & 0x0100) !== 0,
-            ptsDtsIndicator : (pesOptional & 0x00c0) >> 6,
-            escrFlag : (pesOptional & 0x0020) !== 0,
-            esRateFlag : (pesOptional & 0x0010) !== 0,
-            dsmTrickModeFlag : (pesOptional & 0x0008) !== 0,
-            additionalCopyInfoFlag : (pesOptional & 0x0004) !== 0,
-            crcFlag : (pesOptional & 0x0002) !== 0,
-            extensionFlag : (pesOptional & 0x00001) !== 0,
-            pesHeaderLength : x.payload.readUInt8(8)
-          };
-          switch (pesPacket.ptsDtsIndicator) {
-          case 2:
-            pesPacket.pts = readTimeStamp(x.payload, 9);
-            break;
-          case 3:
-            pesPacket.pts = readTimeStamp(x.payload, 9);
-            pesPacket.dts = readTimeStamp(x.payload, 14);
-            break;
-          default:
-            break;
-          }
-          pesPacket.payloads = [ x.payload.slice(9 + pesPacket.pesHeaderLength) ];
-          if (pesBuilder[x.pid]) {
-            var finishedPacket = pesBuilder[x.pid];
-            pesBuilder[x.pid] = pesPacket;
-            push(null, finishedPacket);
-          } else {
-            pesBuilder[x.pid] = pesPacket;
-          }
-        } else {
-          if (pesBuilder[x.pid]) {
-            if (x.payload) // Might be a adaptation field only - no payload
-              pesBuilder[x.pid].payloads.push(x.payload);
-          }
+  var pesMaker = x => {
+    if (x.type === 'TSPacket') {
+      if (x.payloadUnitStartIndicator === true) {
+        if (x.payload.readUIntBE(0, 3) !== 0x000001) {
+          if (warning)
+            console.log(`Warning: Non PES packet found at payload start indicator for PID ${x.pid}.`);
+          return H([x]);
         }
-        if (!filter) push(null, x);
-      } else {
-        push(null, x);
-      }
-      next();
-    }
+        var pesOptional = x.payload.readUInt16BE(6);
+        var pesPacket = {
+          type : 'PESPacket',
+          pid : x.pid,
+          streamID : util.streamIDName[x.payload.readUInt8(3)],
+          pesPacketLength : x.payload.readUInt16BE(4),
+          scramblingControl : (pesOptional & 0x3000) >>> 12,
+          priority : (pesOptional & 0x0800) !== 0,
+          dataAlignmentIndicator : (pesOptional & 0x0400) !== 0,
+          copyright : (pesOptional & 0x0200) !== 0,
+          originalOrCopy : (pesOptional & 0x0100) !== 0,
+          ptsDtsIndicator : (pesOptional & 0x00c0) >> 6,
+          escrFlag : (pesOptional & 0x0020) !== 0,
+          esRateFlag : (pesOptional & 0x0010) !== 0,
+          dsmTrickModeFlag : (pesOptional & 0x0008) !== 0,
+          additionalCopyInfoFlag : (pesOptional & 0x0004) !== 0,
+          crcFlag : (pesOptional & 0x0002) !== 0,
+          extensionFlag : (pesOptional & 0x00001) !== 0,
+          pesHeaderLength : x.payload.readUInt8(8)
+        };
+        switch (pesPacket.ptsDtsIndicator) {
+        case 2:
+          pesPacket.pts = readTimeStamp(x.payload, 9);
+          break;
+        case 3:
+          pesPacket.pts = readTimeStamp(x.payload, 9);
+          pesPacket.dts = readTimeStamp(x.payload, 14);
+          break;
+        default:
+          break;
+        }
+        pesPacket.payloads = [ x.payload.slice(9 + pesPacket.pesHeaderLength) ];
+        if (pesBuilder[x.pid]) {
+          var finishedPacket = pesBuilder[x.pid];
+          pesBuilder[x.pid] = pesPacket;
+          return filter ? H([finishedPacket]) : H([x, finishedPacket]);
+        } else {
+          pesBuilder[x.pid] = pesPacket;
+          return filter ? H([]) : H([x]);
+        }
+      } else { // execute if payloadUnitStartIndicator !== true
+        if (pesBuilder[x.pid]) {
+          if (x.payload) // Might be a adaptation field only - no payload
+            pesBuilder[x.pid].payloads.push(x.payload);
+        }
+        return filter ? H([]) : H([x]);
+      } // payloadUnitStartIndicator === true
+    } else {
+      return H([x]);
+    }  // Is TSPacket
   };
-  return H.pipeline(H.consume(pesMaker));
+  return H.pipeline(H.flatMap(pesMaker));
 }
 
 module.exports = readPESPackets;

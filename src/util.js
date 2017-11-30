@@ -189,6 +189,48 @@ var audioTypeNameID = {};
 for ( let id in audioTypeIDName )
   audioTypeNameID[audioTypeIDName[id]] = +id;
 
+/* function bitStringProcessor (s) {
+  let acc = 0;
+  for ( let x of s ) {
+    acc = (acc << 1) | (x === '1' ? 1 : 0);
+  }
+  return acc;
+} */
+
+var streamIDName = {
+  0xbc: 'program_stream_map',
+  0xbd: 'private_stream_1',
+  0xbe: 'padding_stream',
+  0xbf: 'private_stream_2',
+  0xf0: 'ECM_stream',
+  0xf1: 'EMM_stream',
+  0xf2: 'DSMCC_stream',
+  0xf3: '13522_stream',
+  0xf4: 'type_A',
+  0xf5: 'type_B',
+  0xf6: 'type_C',
+  0xf7: 'type_D',
+  0xf8: 'type_E',
+  0xf9: 'ancillary_stream',
+  0xfa: 'SL-packetized_stream',
+  0xfb: 'FlexMux_stream',
+  0xfc: 'metadata_stream',
+  0xfd: 'extended_stream_id',
+  0xfe: 'reserved_data_stream',
+  0xff: 'program_stream_directory'
+};
+
+for ( let x = 0 ; x <= 0x1f ; x++ )
+  streamIDName[0xc0 | x] = `audio_stream_number_0x${x.toString(16)}`;
+for ( let x = 0 ; x <= 0x0f ; x++ )
+  streamIDName[0xe0 | x] = `video_stream_number_0x${x.toString(16)}`;
+for ( let x = 0 ; x <= 0xff ; x++ )
+  if (!streamIDName[x]) streamIDName[x] = `undefined_0x${x.toString(16)}`;
+
+var streamNameID = {};
+for ( let id in streamIDName )
+  streamNameID[streamIDName[id]] = +id;
+
 function sectionCollector(pid, filter = true) {
   var section = null;
   var lengthDiff = 0;
@@ -443,6 +485,8 @@ module.exports = {
   streamTypeNameID : streamTypeNameID,
   audioTypeIDName : audioTypeIDName,
   audioTypeNameID : audioTypeNameID,
+  streamIDName : streamIDName,
+  streamNameID : streamNameID,
   ALL_PIDS : ALL_PIDS
 };
 
