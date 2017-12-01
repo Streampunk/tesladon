@@ -95,6 +95,12 @@ function testPES (pes, s) {
           t.equal(lastPacket.adaptationField.adaptationFieldLength + 1 +
             lastPacket.payload.length, 184, 'total TS packet payloads is 184.');
         }
+        var cont = true;
+        for ( let i = 1 ; i < tspa.length; i++ ) {
+          cont = tspa[i].payload[0] === (tspa[i - 1].payload.slice(-1)[0] + 1) & 0xff;
+          if (!cont) break;
+        }
+        t.ok(cont, 'payloads are contiguous.');
         t.end();
       });
   });
@@ -107,4 +113,37 @@ for ( let s = 160 ; s < 190 ; s++ ) {
 
 for ( let s = 0 ; s < 100 ; s++ ) {
   testPES(makePES(), s);
+} 
+
+function roundtripPES (inPes, s) {
+  test(`Roundtrip random PES packet ${s} length ${inPes.pesPacketLength}`, t => {
+    H([inPes, inPes])
+      .through(tesladon.writePESPackets())
+      .through(tesladon.readPESPackets())
+      .errors(t.fail)
+      .each(outPes => {
+        t.notEqual(outPes, inPes, 'created a different object.');
+        Object.keys(inPes)
+          .filter(k => k !== 'payloads')
+          .forEach(k => {
+            t.equal(outPes[k], inPes[k], `values are equal for key ${k}.`);
+          });
+        t.equal(
+          outPes.payloads.reduce((x, y) => x + y.length, 0),
+          inPes.payloads.reduce((x, y) => x + y.length, 0),
+          'payloads are the same length.');
+        t.deepEqual(
+          Buffer.concat(outPes.payloads),
+          Buffer.concat(inPes.payloads),
+          'payloads match.');
+      })
+      .done(() => { t.end(); });
+  });
+}
+
+for ( let s = 0 ; s < 10 ; s++)
+  roundtripPES(makePES(), s);
+
+for ( let s = 160 ; s < 190 ; s++ ) {
+  roundtripPES(makePES(s, false), s);
 }
