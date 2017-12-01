@@ -48,7 +48,6 @@ function readPMTs (filter = true) {
             pmtStreams[pid] = genny();
             pmtStreams[pid].stream
               .through(util.psiCollector(pid))
-              .doto(H.log)
               .map(makePMT)
               .errors(e => { push(e); })
               .each(pmt => {

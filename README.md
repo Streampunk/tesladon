@@ -5,7 +5,7 @@
 
 The philosophy is to read/consume any stream (file, network, ASI), turn it into Javascript objects that represent transport stream packets and then add to the stream additional JSON objects for Program Association Tables, Program Map Tables and PES packets. The user of the stream can then filter out the information that is of interest to them. Each stage can either pass on the packets it has processed, or filter them out.
 
-The writing process is effectively the reverse. The user creates a stream of Javascript objects representing the transport stream and tesladon turns these back into transport stream packets. Utility functions will be added over time to help with multiplexing and inserting a sufficient number of PATs and PMTs at a reasonable frequency.
+The writing process is effectively the reverse. The user creates a stream of Javascript objects representing the transport stream and tesladon turns these back into transport stream packets. Utility functions will be added over time to help with multiplexing and inserting a sufficient number of PATs and PMTs at a reasonable frequency. Further descriptors will be added as they are encountered.
 
 ## Installation
 
@@ -46,65 +46,87 @@ The `bufferGroup()` and `readTSPackets()` pipeline stages must come first and be
 
 ### Writing
 
-To follow. The code is basically done but will not be released to the world until it is roundtrip tested and a basic muxer has been created.
+Tesladon can take a stream of Javascript objects representing a mixture of PES streams, PAT tables and PSI tables and convert those to a stream of transport stream packets and write those to a byte stream. The library takes care of conversion of these objects into sections and efficiently sub-dividing payload across the MPEG packets, including length and CRC calculations.
+
+The following contrived example shows how tesladon could be used to write a transport stream to a file:
+
+```javascript
+var tesladon = require('tesladon');
+var H = require('highland');
+var fs = require('fs');
+
+H([ pat, pmt, video_pes1, audio_pes1, video_pes2, audio_pes2 ])
+  .through(tesladon.writePESPackets())
+  .through(tesladon.writePMTs())
+  .through(tesladon.writePAT()) // by here, you have a stream of TS packets only
+  .through(tesladon.writeTSPackets()) // TS packets are converted to Buffers
+  .pipe(fs.createWriteStream('my_new_stream.ts'));
+```
 
 ### Dumping a file
 
 Run:
 
-    tesladump <myfile.ts>
+    tesladump [options] <myfile.ts>
+
+The tool is self-documenting. To find out more, run:
+
+    tesladump --help
 
 Here is an example output:
 
 ```Javascript
 { type: 'ProgramMapTable',
-  pid: 256,
-  pointerField: 0,
-  tableID: 2,
-  sectionSyntaxHeader: true,
-  privateBit: false,
-  sectionLength: 23,
-  programNum: 1,
-  versionNumber: 0,
-  currentNextIndicator: true,
-  sectionNumber: 0,
-  lastSectionNumber: 0,
-  pcrPid: 4096,
-  programInfoLength: 0,
-  payload: <Buffer 00 02 b0 17 00 01 c1 00 00 f0 00 f0 00 1b f0 00 f0 00 0f f0 01 f0 00 c5 f7 eb 39>,
+  pid: 4671,
+  tableID: 'TS_program_map_section',
+  programNumber: 4671,
+  versionNumber: 28,
+  currentNextIndicator: 1,
+  pcrPid: 620,
   programInfo: [],
-  esStreamInfo:
-   { '4096':
-     { streamType: 27,
-       elementaryPid: 4096,
-       esInfoLength: 0,
-       esInfo: [] },
-     '4097':
-     { streamType: 15,
-       elementaryPid: 4097,
-       esInfoLength: 0,
-       esInfo: [] } },
-  CRC: 3321359161 }
+  programElements:
+   { '620':
+      { type: 'ElementaryStreamInfo',
+        streamType: 'ITU-T Rec. H.262 | ISO/IEC 13818-2 Video or ISO/IEC 11172-2 constrained parameter video stream',
+        elementaryPID: 620,
+        esInfo:
+         [ { type: 'DVBStreamIdentifierDescriptor',
+             descriptorTag: 82,
+             descriptorLength: 1,
+             componentTag: 1 } ] },
+     '621':
+      { type: 'ElementaryStreamInfo',
+        streamType: 'ISO/IEC 11172-3 Audio',
+        elementaryPID: 621,
+        esInfo:
+         [ { type: 'ISO639LanguageDescriptor',
+             descriptorTag: 10,
+             descriptorLength: 4,
+            languages: [ { iso639LanguageCode: 'eng', audioType: 'Undefined' } ] },
+          { type: 'DVBStreamIdentifierDescriptor',
+            descriptorTag: 82,
+            descriptorLength: 1,
+            componentTag: 2 } ] } } }
 { type: 'PESPacket',
-  pid: 4096,
-  streamID: 224,
+  pid: 620,
+  streamID: 'video_stream_number_0x0',
   pesPacketLength: 0,
   scramblingControl: 0,
-  priority: false,
-  dataAlignmentIndicator: true,
-  copyright: false,
-  originalOrCopy: false,
-  ptsDtsIndicator: 3,
+  priority: true,
+  dataAlignmentIndicator: false,
+  copyright: true,
+  originalOrCopy: true,
+  ptsDtsIndicator: 2,
   escrFlag: false,
   esRateFlag: false,
   dsmTrickModeFlag: false,
   additionalCopyInfoFlag: false,
   crcFlag: false,
   extensionFlag: false,
-  pesHeaderLength: 10,
-  pts: 3802644416,
-  dts: 3802626416,
-  payloads: { number: 67, size: 12201 } }
+  pesHeaderLength: 5,
+  pts: 4065910999,
+  payloads: { number: 30, size: 5506 } }
+...
 Finished dumping MPEG transport stream data.
 ```
 
@@ -135,9 +157,13 @@ Transport stream timing references are not intended for use as relative time ref
 
 ## Status, support and further development
 
-Currently only reading is supported.
+Reading and writing are supported but you need to create your own multiplexer when writing a stream.
+
+A number of basic descriptors are provided and a full range of descriptors covering those documented in commonly used MPEG-2, MPEG-4, ATSC and DVB specifications will be added in the future. Note that this library does not yet extract event information tables (EITs).
 
 This is prototype software and not suitable for production use. Contributions can be made via pull requests and will be considered by the author on their merits. Enhancement requests and bug reports should be raised as github issues. For support, please contact [Streampunk Media](http://www.streampunk.media/).
+
+
 
 ## License
 

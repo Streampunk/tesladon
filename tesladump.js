@@ -21,21 +21,34 @@ const util = require('util');
 
 var argv = require('yargs')
   .help('help')
-  // .default('metaclass', true)
-  // .default('filler', false)
-  // .default('detailing', true)
-  // .default('nest', true)
-  // .default('flatten', false)
-  // .boolean(['filler', 'metaclass', 'detailing', 'nest', 'flatten'])
+  .default('pat', true)
+  .default('pmt', true)
+  .default('pes', true)
+  .default('filter', true)
+  .default('video', true)
+  .default('audio', true)
+  .default('anc', true)
+  .default('payload', false)
+  .default('tspacket', false)
+  .array('pid')
+  .number('pid')
+  .boolean(['pat', 'pmt', 'pes', 'filter', 'video',
+    'audio', 'anc', 'payload', 'tspacket'])
   .string(['version'])
   .usage('Dump an MPEG transport stream file as a stream of JSON objects.\n' +
     'Usage: $0 [options] <file.ts>')
-  // .describe('filler', 'include filler in the output')
-  // .describe('metadata', 'resolves keys to meta classes')
-  // .describe('detailing', 'decode bytes to JS objects')
-  // .describe('nest', 'nest children within preface')
-  // .describe('flatten', 'show only detail for each KLV packet')
-  .example('$0 my_stream.ts')
+  .describe('pat', 'include the PAT in the output')
+  .describe('pmt', 'include the PMTs in the output')
+  .describe('pes', 'include pes packets in the output')
+  .describe('filter', 'filter out TS packets that have been processed')
+  .describe('pid', 'list of pids to include in output, default is all')
+  .describe('video', 'include video PES packets in the output')
+  .describe('audio', 'include audio PES packets in the output')
+  .describe('anc', 'include all other PES packets in the output')
+  .describe('payloads', 'show the payload bytes of packets')
+  .describe('tspacket', 'include raw transport stream packets')
+  .example('$0 --pat false --video false my_stream.ts')
+  .example('$0 --pid 0 --pid 4096 my_stream.ts')
   .check((argv) => {
     fs.accessSync(argv._[0], fs.R_OK);
     return true;
@@ -43,14 +56,13 @@ var argv = require('yargs')
   .argv;
 
 H(fs.createReadStream(argv._[0]))
-  .pipe(tesladon.bufferGroup(188))
-  .pipe(tesladon.readTSPackets())
-//  .pipe(tesladon.readPAT(true))
-//  .pipe(tesladon.readPMTs(true))
-//  .pipe(tesladon.readPESPackets(true))
-//  .filter(x => x.type !== 'TSPacket')
+  .through(tesladon.bufferGroup(188))
+  .through(tesladon.readTSPackets())
+  .through(tesladon.readPAT(argv.filter))
+  .through(tesladon.readPMTs(argv.filter))
+  .through(tesladon.readPESPackets(argv.filter))
   .map(x => {
-    if (x.type === 'PESPacket') {
+    if ((!argv.payloads) && (x.payloads)) {
       x.payloads = {
         number: x.payloads.length,
         size: x.payloads.reduce((x, y) => x + y.length, 0)
@@ -58,6 +70,30 @@ H(fs.createReadStream(argv._[0]))
     }
     return x;
   })
+  .flatMap(x => {
+    switch (x.type) {
+    case 'ProgramAssociationTable':
+      return argv.pat ? H([x]) : H([]);
+    case 'ProgramMapTable':
+      return argv.pmt ? H([x]) : H([]);
+    case 'PESPacket':
+      if (!argv.pes) return H([]);
+      if (x.streamID.startsWith('video_stream')) {
+        return argv.video ? H([x]) : H([]);
+      }
+      if (x.streamID.startsWith('audio_stream')) {
+        return argv.audio ? H([x]) : H([]);
+      }
+      return argv.anc ? H([x]) : H([]);
+    case 'TSPacket':
+      return argv.tspacket ? H([x]) : H([]);
+    default:
+      return H([x]);
+    }
+  })
+  .filter(x =>
+    (!argv.pid || argv.pid.length === 0) ||
+    argv.pid.indexOf(x.pid) >= 0)
   .errors(console.error)
   .each(x => {
     console.log(util.inspect(x, { depth: null }));
