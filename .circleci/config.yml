@@ -27,11 +27,10 @@ jobs:
         paths:
         - ./node_modules
     - run: echo 'export PATH="~/Streampunk/tesladon/node_modules/.bin:$PATH"' >> $BASH_ENV
-    - run: mkdir -p $CIRCLE_ARTIFACTS/tap
     - run: mkdir -p $CIRCLE_TEST_REPORTS/eslint
     - run: mkdir -p $CIRCLE_TEST_REPORTS/xunit
     - run: eslint **/*.js -f junit -o /tmp/circleci-test-results/eslint/eslint.xml
-    - run: tap -R xunit -o /tmp/circleci-artifacts/tap/results.tap test/*.js > /tmp/circleci-test-results/xunit/results.xml
+    - run: set -eo pipefail && npm test | tap-xunit > /tmp/circleci-test-results/xunit/results.xml
       
     - store_test_results:
         path: /tmp/circleci-test-results
