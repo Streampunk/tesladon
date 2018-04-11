@@ -24,13 +24,13 @@
   },
   "homepage": "https://github.com/Streampunk/tesladon#readme",
   "dependencies": {
-    "highland": "^2.10.1",
-    "yargs": "^10.0.3"
+    "highland": "^2.13.0",
+    "yargs": "^11.0.0"
   },
   "devDependencies": {
-    "eslint": "^4.9.0",
+    "eslint": "^4.19.1",
     "eslint-config-google": "^0.9.1",
-    "tape": "^4.8.0"
+    "tape": "^4.9.0"
   },
   "bin": {
     "tesladump": "./tesladump.js"
